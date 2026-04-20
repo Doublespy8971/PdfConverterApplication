@@ -31,3 +31,16 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+
+### Environment ###
+.env
+.env.local
+
+### Uploads ###
+uploads/
+
