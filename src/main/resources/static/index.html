@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocConvert Pro - Document Conversion Made Easy</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="logo-section">
+            <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <rect x="20" y="15" width="60" height="70" rx="5" fill="url(#logoGrad)"/>
+                <circle cx="50" cy="35" r="8" fill="#ffffff" opacity="0.9"/>
+                <rect x="30" y="50" width="40" height="3" fill="#ffffff" opacity="0.8"/>
+                <rect x="30" y="58" width="40" height="3" fill="#ffffff" opacity="0.8"/>
+                <rect x="30" y="66" width="30" height="3" fill="#ffffff" opacity="0.8"/>
+                <path d="M 70 85 Q 80 80 85 90" stroke="url(#logoGrad)" stroke-width="3" fill="none" stroke-linecap="round"/>
+            </svg>
+            <h1>DocConvert Pro</h1>
+        </div>
+        <p class="subtitle">Fast & Easy Document Conversion Tool</p>
+    </header>
+
+    <div class="tools-grid" id="toolSelection">
+
+        <article class="tool-card" data-tool="word-to-pdf">
+            <div class="tool-icon">📝</div>
+            <h2>Word to PDF</h2>
+            <p>Convert DOC, DOCX, ODT, RTF, and TXT files to PDF.</p>
+            <button class="tool-btn" data-tool="word-to-pdf">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="excel-to-pdf">
+            <div class="tool-icon">📊</div>
+            <h2>Excel to PDF</h2>
+            <p>Convert XLS, XLSX, ODS, and CSV files to PDF.</p>
+            <button class="tool-btn" data-tool="excel-to-pdf">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="powerpoint-to-pdf">
+            <div class="tool-icon">📽️</div>
+            <h2>PowerPoint to PDF</h2>
+            <p>Convert PPT, PPTX, and ODP slides to PDF.</p>
+            <button class="tool-btn" data-tool="powerpoint-to-pdf">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="images-to-pdf">
+            <div class="tool-icon">🖼️</div>
+            <h2>Images to PDF</h2>
+            <p>Convert JPG, PNG, GIF, BMP, and WebP to PDF.</p>
+            <button class="tool-btn" data-tool="images-to-pdf">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="pdf-to-images">
+            <div class="tool-icon">📷</div>
+            <h2>PDF to Images</h2>
+            <p>Extract all pages from PDF as PNG images in a ZIP file.</p>
+            <button class="tool-btn" data-tool="pdf-to-images">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="pdf-to-word">
+            <div class="tool-icon">📄↔📝</div>
+            <h2>PDF to Word</h2>
+            <p>Convert PDF to editable DOCX documents.</p>
+            <button class="tool-btn" data-tool="pdf-to-word">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="pdf-to-excel">
+            <div class="tool-icon">📄↔📊</div>
+            <h2>PDF to Excel</h2>
+            <p>Convert PDF to XLSX spreadsheets.</p>
+            <button class="tool-btn" data-tool="pdf-to-excel">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="pdf-to-ppt">
+            <div class="tool-icon">📄↔📽️</div>
+            <h2>PDF to PowerPoint</h2>
+            <p>Convert PDF to editable PPTX presentations.</p>
+            <button class="tool-btn" data-tool="pdf-to-ppt">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="split-pdf">
+            <div class="tool-icon">✂️</div>
+            <h2>Split PDF</h2>
+            <p>Split PDF into individual pages and download as separate files.</p>
+            <button class="tool-btn" data-tool="split-pdf">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="merge-pdf">
+            <div class="tool-icon">🔗</div>
+            <h2>Merge PDF</h2>
+            <p>Combine multiple PDF files into one document.</p>
+            <button class="tool-btn" data-tool="merge-pdf">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="compress-pdf">
+            <div class="tool-icon">🗜️</div>
+            <h2>Compress PDF</h2>
+            <p>Reduce PDF file size while maintaining quality.</p>
+            <button class="tool-btn" data-tool="compress-pdf">Use Tool</button>
+        </article>
+
+        <article class="tool-card" data-tool="ai-summarize">
+            <div class="tool-icon">🤖</div>
+            <h2>AI Summarizer</h2>
+            <p>Get intelligent AI-powered summaries of PDF documents.</p>
+            <button class="tool-btn" data-tool="ai-summarize">Use Tool</button>
+        </article>
+    </div>
+
+    <div class="card upload-card hidden" id="uploadSection">
+        <div class="upload-header">
+            <h2 id="toolTitle">Convert to PDF</h2>
+            <button class="back-btn" id="backBtn" type="button">← Back</button>
+        </div>
+
+        <!-- AI Summarizer specific section -->
+        <div id="aiSummarizerSection" class="hidden">
+            <label for="summaryLength" class="summary-label">Summary Length:</label>
+            <select id="summaryLength" class="summary-select">
+                <option value="short">Short (2-3 sentences)</option>
+                <option value="medium" selected>Medium (3-4 sentences)</option>
+                <option value="long">Long (5-7 sentences)</option>
+            </select>
+        </div>
+
+        <div class="drop-zone" id="dropZone">
+            <p id="dropText">Drag and drop or click to select your file</p>
+            <input type="file" id="fileInput">
+        </div>
+        <button class="convert-btn" id="convertBtn" disabled>Convert</button>
+
+        <!-- Summary output section -->
+        <div id="summaryOutput" class="hidden">
+            <h3>Summary Result</h3>
+            <div class="summary-info">
+                <span id="summaryStats"></span>
+            </div>
+            <div id="summaryText" class="summary-box"></div>
+            <button id="copySummaryBtn" class="copy-btn">📋 Copy Summary</button>
+        </div>
+
+        <div id="status"></div>
+    </div>
+</div>
+<script src="js/main.js"></script>
+</body>
+</html>

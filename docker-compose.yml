@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  pdf-converter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pdf-converter-app
+    ports:
+      - "8080:8080"
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-add-your-openai-api-key-here}
+      - OPENAI_MODEL=gpt-3.5-turbo
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/convert/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
