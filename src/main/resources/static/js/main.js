@@ -2,22 +2,30 @@ const tools = {
     'word-to-pdf': {
         title: 'Word to PDF',
         accept: '.doc,.docx,.odt,.rtf,.txt',
-        outputExt: 'pdf'
+        outputExt: 'pdf',
+        isMultiple: true,
+        isBatchable: true
     },
     'excel-to-pdf': {
         title: 'Excel to PDF',
         accept: '.xls,.xlsx,.ods,.csv',
-        outputExt: 'pdf'
+        outputExt: 'pdf',
+        isMultiple: true,
+        isBatchable: true
     },
     'powerpoint-to-pdf': {
         title: 'PowerPoint to PDF',
         accept: '.ppt,.pptx,.odp',
-        outputExt: 'pdf'
+        outputExt: 'pdf',
+        isMultiple: true,
+        isBatchable: true
     },
     'images-to-pdf': {
         title: 'Images to PDF',
         accept: '.png,.jpg,.jpeg,.gif,.bmp,.webp',
-        outputExt: 'pdf'
+        outputExt: 'pdf',
+        isMultiple: true,
+        isBatchable: true
     },
     'pdf-to-images': {
         title: 'PDF to Images',
