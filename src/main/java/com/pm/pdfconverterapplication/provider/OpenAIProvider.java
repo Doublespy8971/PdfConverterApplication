@@ -1,8 +1,9 @@
-package com.pm.pdfconverterapplication.service;
+package com.pm.pdfconverterapplication.provider;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.pm.pdfconverterapplication.model.SummaryResult;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -11,11 +12,19 @@ import okhttp3.Response;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
-@Service
-public class AIService {
+import java.io.InputStream;
+
+/**
+ * OpenAI implementation of the LLMProvider strategy.
+ * Uses OpenAI's GPT models for PDF summarization via the Chat Completions API.
+ */
+@Component
+@ConditionalOnProperty(name = "ai.provider", havingValue = "openai", matchIfMissing = true)
+public class OpenAIProvider implements LLMProvider {
 
     @Value("${openai.api.key}")
     private String apiKey;
@@ -27,8 +36,7 @@ public class AIService {
     private final OkHttpClient httpClient = new OkHttpClient();
     private final Gson gson = new Gson();
 
-    public record SummaryResult(String summary, String originalLength, String summaryLength) {}
-
+    @Override
     public SummaryResult summarizePdf(MultipartFile file, String summaryLength) throws Exception {
         // Check if API key is configured
         if (apiKey == null || apiKey.isEmpty() || apiKey.contains("add-your")) {
@@ -36,9 +44,9 @@ public class AIService {
         }
 
         // Extract text from PDF
-        byte[] fileContent = file.getBytes();
         String pdfText;
-        try (PDDocument document = PDDocument.load(fileContent)) {
+        try (InputStream inputStream = file.getInputStream();
+             PDDocument document = PDDocument.load(inputStream)) {
             PDFTextStripper stripper = new PDFTextStripper();
             pdfText = stripper.getText(document);
         }
@@ -56,6 +64,14 @@ public class AIService {
         int summaryWordCount = summary.split("\\s+").length;
 
         return new SummaryResult(summary, originalWordCount + " words", summaryWordCount + " words");
+    }
+
+    @Override
+    public String validateApiKey() {
+        if (apiKey == null || apiKey.isEmpty() || apiKey.contains("add-your")) {
+            return "API key not configured";
+        }
+        return "API key configured";
     }
 
     private String truncateText(String text, int maxWords) {
@@ -124,13 +140,6 @@ public class AIService {
 
             return summary.trim();
         }
-    }
-
-    public String validateApiKey() {
-        if (apiKey == null || apiKey.isEmpty() || apiKey.contains("add-your")) {
-            return "API key not configured";
-        }
-        return "API key configured";
     }
 }
 

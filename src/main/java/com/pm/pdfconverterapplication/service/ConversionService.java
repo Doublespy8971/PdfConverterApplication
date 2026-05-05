@@ -79,9 +79,8 @@ public class ConversionService {
     }
 
     private ConversionResult convertPdfToWord(MultipartFile file, ToolDefinition toolDefinition) throws Exception {
-        byte[] fileContent = file.getBytes();
-
-        try (PDDocument document = PDDocument.load(fileContent);
+        try (InputStream inputStream = file.getInputStream();
+             PDDocument document = PDDocument.load(inputStream);
              XWPFDocument wordDoc = new XWPFDocument();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
@@ -103,9 +102,8 @@ public class ConversionService {
     }
 
     private ConversionResult convertPdfToExcel(MultipartFile file, ToolDefinition toolDefinition) throws Exception {
-        byte[] fileContent = file.getBytes();
-
-        try (PDDocument document = PDDocument.load(fileContent);
+        try (InputStream inputStream = file.getInputStream();
+             PDDocument document = PDDocument.load(inputStream);
              XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
@@ -137,9 +135,8 @@ public class ConversionService {
     }
 
     private ConversionResult convertPdfToPpt(MultipartFile file, ToolDefinition toolDefinition) throws Exception {
-        byte[] fileContent = file.getBytes();
-
-        try (PDDocument document = PDDocument.load(fileContent);
+        try (InputStream inputStream = file.getInputStream();
+             PDDocument document = PDDocument.load(inputStream);
              XMLSlideShow pptDoc = new XMLSlideShow();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
@@ -172,11 +169,10 @@ public class ConversionService {
     }
 
     private ConversionResult convertPdfToImages(MultipartFile file, ToolDefinition toolDefinition) throws Exception {
-        byte[] fileContent = file.getBytes();
-
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
              ZipOutputStream zipOut = new ZipOutputStream(outputStream);
-             PDDocument document = PDDocument.load(fileContent)) {
+             InputStream inputStream = file.getInputStream();
+             PDDocument document = PDDocument.load(inputStream)) {
 
             PDFRenderer renderer = new PDFRenderer(document);
             int pageCount = document.getNumberOfPages();
@@ -236,11 +232,10 @@ public class ConversionService {
     }
 
     private ConversionResult splitPdf(MultipartFile file, ToolDefinition toolDefinition) throws Exception {
-        byte[] fileContent = file.getBytes();
-
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
              ZipOutputStream zipOut = new ZipOutputStream(outputStream);
-             PDDocument document = PDDocument.load(fileContent)) {
+             InputStream inputStream = file.getInputStream();
+             PDDocument document = PDDocument.load(inputStream)) {
 
             int pageCount = document.getNumberOfPages();
             if (pageCount == 0) {
@@ -284,7 +279,8 @@ public class ConversionService {
                     throw new IllegalArgumentException("All files must be PDF. Found: " + extension);
                 }
 
-                try (PDDocument document = PDDocument.load(file.getBytes())) {
+                try (InputStream inputStream = file.getInputStream();
+                     PDDocument document = PDDocument.load(inputStream)) {
                     for (int i = 0; i < document.getNumberOfPages(); i++) {
                         PDPage page = document.getPage(i);
                         mergedDocument.importPage(page);
@@ -407,9 +403,8 @@ public class ConversionService {
     }
 
     private ConversionResult compressPdf(MultipartFile file, ToolDefinition toolDefinition) throws Exception {
-        byte[] fileContent = file.getBytes();
-
-        try (PDDocument document = PDDocument.load(fileContent);
+        try (InputStream inputStream = file.getInputStream();
+             PDDocument document = PDDocument.load(inputStream);
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
             // Process each page to ensure optimal compression

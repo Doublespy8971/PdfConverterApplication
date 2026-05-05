@@ -213,8 +213,9 @@ function updateFileDisplay() {
 window.addEventListener('DOMContentLoaded', () => {
     setupDragDrop();
 
-    document.querySelectorAll('.tool-btn').forEach((button) => {
-        button.addEventListener('click', () => setTool(button.dataset.tool));
+    // Add click listeners to tool cards instead of buttons
+    document.querySelectorAll('.tool-card').forEach((card) => {
+        card.addEventListener('click', () => setTool(card.dataset.tool));
     });
 
     document.getElementById('backBtn').addEventListener('click', backToTools);
@@ -243,6 +244,7 @@ async function convertFile() {
         let endpoint = `/api/convert/${currentTool}`;
         let formData = new FormData();
         const config = tools[currentTool];
+        let isBatch = false;
 
         if (currentTool === 'merge-pdf') {
             endpoint = `/api/convert/merge-pdf`;
@@ -251,17 +253,36 @@ async function convertFile() {
             }
             setStatus(`Merging ${files.length} PDF files...`, 'info');
         } else if (currentTool === 'ai-summarize') {
+            // AI Summarizer - Keep synchronous logic
             endpoint = `/api/ai/summarize`;
             const summaryLength = document.getElementById('summaryLength').value;
             formData.append('file', files[0]);
             formData.append('length', summaryLength);
             setStatus(`Summarizing PDF with AI...`, 'info');
+
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!res.ok) {
+                const errorText = await res.text();
+                setStatus(errorText || `Summarization failed (HTTP ${res.status}).`, 'error');
+                convertBtn.disabled = false;
+                return;
+            }
+
+            const result = await res.json();
+            displaySummaryResult(result);
+            convertBtn.disabled = false;
+            return;
         } else if (config.isBatchable && files.length > 1) {
             // Batch conversion for multiple files
             endpoint = `/api/convert/batch/${currentTool}`;
             for (let file of files) {
                 formData.append('files', file);
             }
+            isBatch = true;
             setStatus(`Converting ${files.length} files in batch...`, 'info');
         } else {
             // Single file conversion
@@ -270,6 +291,7 @@ async function convertFile() {
             setStatus(`Converting ${file.name}...`, 'info');
         }
 
+        // Initiate async conversion
         const res = await fetch(endpoint, {
             method: 'POST',
             body: formData
@@ -282,42 +304,139 @@ async function convertFile() {
             return;
         }
 
-        if (currentTool === 'ai-summarize') {
-            const result = await res.json();
-            displaySummaryResult(result);
-        } else {
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
+        // Extract taskId from response
+        const responseData = await res.json();
+        const taskId = responseData.taskId;
 
-            // Generate appropriate filename
-            if (currentTool === 'merge-pdf') {
-                a.download = `merged.pdf`;
-            } else if (config.isBatchable && files.length > 1) {
-                a.download = `batch_conversion_${new Date().getTime()}.zip`;
-            } else {
-                a.download = `${files[0].name.replace(/\.[^/.]+$/, '')}.${config.outputExt}`;
-            }
-
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-
-            if (config.isBatchable && files.length > 1) {
-                setStatus(`✓ Batch conversion successful: ${a.download}. Downloaded zip contains ${files.length} folders.`, 'success');
-            } else {
-                setStatus(`✓ Conversion successful: ${a.download}`, 'success');
-            }
+        if (!taskId) {
+            setStatus('Error: No task ID received from server.', 'error');
+            convertBtn.disabled = false;
+            return;
         }
 
-        convertBtn.disabled = false;
+        // Start polling for task completion
+        const originalFileName = isBatch ?
+            `batch_conversion_${new Date().getTime()}.zip` :
+            files[0].name.replace(/\.[^/.]+$/, '') + '.' + config.outputExt;
+
+        pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, files.length);
+
     } catch (e) {
         setStatus('Error connecting to server: ' + e.message, 'error');
         convertBtn.disabled = false;
     }
 }
+
+/**
+ * Polls the conversion task status every 2 seconds until completion.
+ * @param {string} taskId - The unique task ID
+ * @param {object} config - The tool configuration
+ * @param {string} originalFileName - The original filename for download
+ * @param {boolean} isBatch - Whether this is a batch conversion
+ * @param {HTMLElement} convertBtn - The convert button element
+ * @param {number} fileCount - Number of files being converted
+ */
+function pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, fileCount) {
+    let pollCount = 0;
+    const maxPolls = 1800; // 1 hour max (1800 * 2 seconds)
+
+    const pollInterval = setInterval(async () => {
+        pollCount++;
+
+        try {
+            const res = await fetch(`/api/convert/status/${taskId}`);
+
+            if (!res.ok) {
+                if (res.status === 404) {
+                    clearInterval(pollInterval);
+                    setStatus('Error: Task not found.', 'error');
+                    convertBtn.disabled = false;
+                }
+                return;
+            }
+
+            const taskStatus = await res.json();
+            const status = taskStatus.status;
+
+            if (status === 'PROCESSING' || status === 'PENDING') {
+                // Still processing
+                setStatus(`Processing... please wait (${pollCount * 2} seconds elapsed)`, 'info');
+            } else if (status === 'FAILED') {
+                // Conversion failed
+                clearInterval(pollInterval);
+                const errorMsg = taskStatus.errorMessage || 'Unknown error occurred';
+                setStatus(`✗ Conversion failed: ${errorMsg}`, 'error');
+                convertBtn.disabled = false;
+            } else if (status === 'COMPLETED') {
+                // Conversion complete - trigger download
+                clearInterval(pollInterval);
+                downloadConvertedFile(taskId, originalFileName, isBatch, fileCount, convertBtn, config);
+            }
+
+            // Safety check: Stop polling if exceeded max attempts
+            if (pollCount >= maxPolls) {
+                clearInterval(pollInterval);
+                setStatus('Error: Conversion exceeded maximum time limit.', 'error');
+                convertBtn.disabled = false;
+            }
+
+        } catch (e) {
+            clearInterval(pollInterval);
+            setStatus('Error polling task status: ' + e.message, 'error');
+            convertBtn.disabled = false;
+        }
+    }, 2000); // Poll every 2 seconds
+}
+
+/**
+ * Downloads the converted file after task completion.
+ * @param {string} taskId - The unique task ID
+ * @param {string} originalFileName - The filename for download
+ * @param {boolean} isBatch - Whether this is a batch conversion
+ * @param {number} fileCount - Number of files converted
+ * @param {HTMLElement} convertBtn - The convert button element
+ * @param {object} config - The tool configuration
+ */
+async function downloadConvertedFile(taskId, originalFileName, isBatch, fileCount, convertBtn, config) {
+    try {
+        setStatus('Downloading converted file...', 'info');
+
+        const res = await fetch(`/api/convert/download/${taskId}`);
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            setStatus(`✗ Download failed: ${errorData.errorMessage || 'Unknown error'}`, 'error');
+            convertBtn.disabled = false;
+            return;
+        }
+
+        // Get the file blob
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = originalFileName;
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        // Update status
+        if (isBatch) {
+            setStatus(`✓ Batch conversion successful: ${originalFileName}. Downloaded zip contains ${fileCount} folders.`, 'success');
+        } else {
+            setStatus(`✓ Conversion successful: ${originalFileName}`, 'success');
+        }
+
+        convertBtn.disabled = false;
+
+    } catch (e) {
+        setStatus('Error downloading file: ' + e.message, 'error');
+        convertBtn.disabled = false;
+    }
+}
+
 
 function displaySummaryResult(result) {
     const summaryOutput = document.getElementById('summaryOutput');

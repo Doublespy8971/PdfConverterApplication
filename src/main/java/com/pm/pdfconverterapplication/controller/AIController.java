@@ -1,6 +1,7 @@
 package com.pm.pdfconverterapplication.controller;
 
-import com.pm.pdfconverterapplication.service.AIService;
+import com.pm.pdfconverterapplication.model.SummaryResult;
+import com.pm.pdfconverterapplication.provider.LLMProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,10 +12,10 @@ import org.springframework.web.multipart.MultipartFile;
 @CrossOrigin(origins = "*")
 public class AIController {
 
-    private final AIService aiService;
+    private final LLMProvider llmProvider;
 
-    public AIController(AIService aiService) {
-        this.aiService = aiService;
+    public AIController(LLMProvider llmProvider) {
+        this.llmProvider = llmProvider;
     }
 
     @PostMapping("/summarize")
@@ -31,7 +32,7 @@ public class AIController {
                 return ResponseEntity.badRequest().body("Only PDF files are supported for summarization");
             }
 
-            AIService.SummaryResult result = aiService.summarizePdf(file, summaryLength);
+            SummaryResult result = llmProvider.summarizePdf(file, summaryLength);
             return ResponseEntity.ok(result);
 
         } catch (IllegalArgumentException e) {
@@ -45,11 +46,11 @@ public class AIController {
     @GetMapping("/status")
     public ResponseEntity<?> checkApiStatus() {
         try {
-            String status = aiService.validateApiKey();
+            String status = llmProvider.validateApiKey();
             if (status.contains("not configured")) {
-                return ResponseEntity.ok(new ApiStatusResponse(false, "OpenAI API key not configured. Please add your key to application.properties"));
+                return ResponseEntity.ok(new ApiStatusResponse(false, "LLM Provider API key not configured. Please add your key to application.properties"));
             }
-            return ResponseEntity.ok(new ApiStatusResponse(true, "OpenAI API is ready"));
+            return ResponseEntity.ok(new ApiStatusResponse(true, "LLM Provider API is ready"));
         } catch (Exception e) {
             return ResponseEntity.ok(new ApiStatusResponse(false, "Error checking API status: " + e.getMessage()));
         }
@@ -62,4 +63,6 @@ public class AIController {
 
     public record ApiStatusResponse(boolean ready, String message) {}
 }
+
+
 
