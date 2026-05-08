@@ -1,5 +1,7 @@
 package com.pm.pdfconverterapplication.interceptor;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Bucket4j;
@@ -10,21 +12,24 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class RateLimitingInterceptor implements HandlerInterceptor {
 
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    // Caffeine cache: stores buckets per IP, evicts after 2 hours of inactivity
+    private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
+            .expireAfterAccess(2, TimeUnit.HOURS)
+            .build();
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         // Get client IP address
         String ipAddress = getClientIpAddress(request);
 
-        // Get or create bucket for this IP
-        Bucket bucket = buckets.computeIfAbsent(ipAddress, ip -> createNewBucket());
+        // Get or create bucket for this IP using Caffeine cache
+        // Automatically evicts after 2 hours of inactivity
+        Bucket bucket = buckets.get(ipAddress, ip -> createNewBucket());
 
         // Try to consume 1 token
         if (!bucket.tryConsume(1)) {

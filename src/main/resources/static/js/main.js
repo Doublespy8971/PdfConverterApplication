@@ -83,6 +83,10 @@ const tools = {
     }
 };
 
+// File size limits (must match application.properties settings)
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB per file
+const MAX_REQUEST_SIZE = 500 * 1024 * 1024; // 500 MB total batch size
+
 let currentTool = '';
 
 function setStatus(message, type = 'info') {
@@ -195,12 +199,32 @@ function updateFileDisplay() {
     const convertBtn = document.getElementById('convertBtn');
 
     if (files.length > 0) {
+        // File size validation
+        // Check individual file sizes (max 100MB per file)
+        for (let i = 0; i < files.length; i++) {
+            if (files[i].size > MAX_FILE_SIZE) {
+                const sizeMB = (files[i].size / 1024 / 1024).toFixed(2);
+                setStatus(`❌ File too large: ${files[i].name} (${sizeMB}MB) exceeds the 100MB limit.`, 'error');
+                convertBtn.disabled = true;
+                return;
+            }
+        }
+
+        // Check total batch size (max 500MB combined)
+        const totalSize = Array.from(files).reduce((sum, file) => sum + file.size, 0);
+        if (totalSize > MAX_REQUEST_SIZE) {
+            const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2);
+            setStatus(`❌ Batch too large: Total size (${totalSizeMB}MB) exceeds the 500MB limit. Please select fewer files.`, 'error');
+            convertBtn.disabled = true;
+            return;
+        }
+
+        // All validations passed - enable conversion
         let filesInfo;
         if (files.length === 1) {
-            filesInfo = `File selected: ${files[0].name} (${(files[0].size / 1024 / 1024).toFixed(2)} MB)`;
+            filesInfo = `✓ File selected: ${files[0].name} (${(files[0].size / 1024 / 1024).toFixed(2)} MB)`;
         } else {
-            const totalSize = Array.from(files).reduce((sum, file) => sum + file.size, 0);
-            filesInfo = `${files.length} files selected (${(totalSize / 1024 / 1024).toFixed(2)} MB total)`;
+            filesInfo = `✓ ${files.length} files selected (${(totalSize / 1024 / 1024).toFixed(2)} MB total)`;
         }
         setStatus(filesInfo, 'success');
         convertBtn.disabled = false;
@@ -221,7 +245,97 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('backBtn').addEventListener('click', backToTools);
     document.getElementById('convertBtn').addEventListener('click', convertFile);
     document.getElementById('copySummaryBtn').addEventListener('click', copySummaryToClipboard);
+
+    // Mobile hamburger menu toggle
+    const navToggle = document.querySelector('.nav-toggle');
+    const nav = document.querySelector('nav');
+    const navLinks = document.querySelector('.nav-links');
+
+    if (navToggle) {
+        navToggle.addEventListener('click', () => {
+            const isOpen = nav.classList.toggle('nav-open');
+            // Toggle icon between hamburger (☰) and close (✕)
+            navToggle.textContent = isOpen ? '✕' : '☰';
+        });
+
+        // Close menu when a non-dropdown link is clicked
+        document.querySelectorAll('.nav-links > li > a:not(.nav-link-dropdown)').forEach((link) => {
+            link.addEventListener('click', () => {
+                nav.classList.remove('nav-open');
+                navToggle.textContent = '☰';
+            });
+        });
+
+        // Close menu when a dropdown menu item is clicked
+        document.querySelectorAll('.dropdown-menu a').forEach((link) => {
+            link.addEventListener('click', () => {
+                nav.classList.remove('nav-open');
+                navToggle.textContent = '☰';
+            });
+        });
+    }
+
+    // Mobile dropdown menu handling
+    setupMobileDropdowns();
 });
+
+/**
+ * Sets the tool and scrolls to the upload section
+ * @param {string} toolKey - The tool key
+ */
+function setToolAndScroll(toolKey) {
+    event.preventDefault();
+    setTool(toolKey);
+    
+    // Scroll to the upload section smoothly
+    setTimeout(() => {
+        const uploadSection = document.getElementById('uploadSection');
+        if (uploadSection) {
+            uploadSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 100);
+}
+
+/**
+ * Setup mobile dropdown interactions
+ */
+function setupMobileDropdowns() {
+    const dropdownItems = document.querySelectorAll('.nav-item-dropdown');
+    const navLinks = document.querySelector('.nav-links');
+    
+    dropdownItems.forEach((item) => {
+        const link = item.querySelector('.nav-link-dropdown');
+        
+        // Handle click on dropdown toggle
+        link.addEventListener('click', (e) => {
+            // Only toggle on mobile (screen width <= 768px AND nav is open)
+            const isMobile = window.innerWidth <= 768;
+            const isNavOpen = document.querySelector('nav').classList.contains('nav-open');
+            
+            if (isMobile && isNavOpen) {
+                e.preventDefault();
+                const isActive = item.classList.toggle('active');
+                
+                // Close other dropdowns when opening one
+                if (isActive) {
+                    dropdownItems.forEach((otherItem) => {
+                        if (otherItem !== item) {
+                            otherItem.classList.remove('active');
+                        }
+                    });
+                }
+            }
+        });
+
+        // Close dropdown when a menu item is clicked
+        const menuItems = item.querySelectorAll('.dropdown-menu a');
+        menuItems.forEach((menuItem) => {
+            menuItem.addEventListener('click', () => {
+                item.classList.remove('active');
+            });
+        });
+    });
+}
 
 async function convertFile() {
     const fileInput = document.getElementById('fileInput');
@@ -340,6 +454,10 @@ function pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, f
     let pollCount = 0;
     const maxPolls = 1800; // 1 hour max (1800 * 2 seconds)
 
+    // Show progress bar when polling starts
+    const progressBar = document.getElementById('progressBar');
+    progressBar.classList.remove('hidden');
+
     const pollInterval = setInterval(async () => {
         pollCount++;
 
@@ -349,6 +467,7 @@ function pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, f
             if (!res.ok) {
                 if (res.status === 404) {
                     clearInterval(pollInterval);
+                    progressBar.classList.add('hidden');
                     setStatus('Error: Task not found.', 'error');
                     convertBtn.disabled = false;
                 }
@@ -362,26 +481,30 @@ function pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, f
                 // Still processing
                 setStatus(`Processing... please wait (${pollCount * 2} seconds elapsed)`, 'info');
             } else if (status === 'FAILED') {
-                // Conversion failed
+                // Conversion failed - hide progress bar
                 clearInterval(pollInterval);
+                progressBar.classList.add('hidden');
                 const errorMsg = taskStatus.errorMessage || 'Unknown error occurred';
                 setStatus(`✗ Conversion failed: ${errorMsg}`, 'error');
                 convertBtn.disabled = false;
             } else if (status === 'COMPLETED') {
-                // Conversion complete - trigger download
+                // Conversion complete - hide progress bar and trigger download
                 clearInterval(pollInterval);
+                progressBar.classList.add('hidden');
                 downloadConvertedFile(taskId, originalFileName, isBatch, fileCount, convertBtn, config);
             }
 
             // Safety check: Stop polling if exceeded max attempts
             if (pollCount >= maxPolls) {
                 clearInterval(pollInterval);
+                progressBar.classList.add('hidden');
                 setStatus('Error: Conversion exceeded maximum time limit.', 'error');
                 convertBtn.disabled = false;
             }
 
         } catch (e) {
             clearInterval(pollInterval);
+            progressBar.classList.add('hidden');
             setStatus('Error polling task status: ' + e.message, 'error');
             convertBtn.disabled = false;
         }

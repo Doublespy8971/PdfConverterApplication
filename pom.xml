@@ -91,6 +91,13 @@
             <version>7.6.0</version>
         </dependency>
 
+        <!-- Caffeine Cache for Memory-Efficient Bucket Storage -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.1.8</version>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
