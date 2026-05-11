@@ -12,10 +12,6 @@ public final class FileNameUtils {
             return "file";
         }
 
-        // Extract filename from path, handling both Unix and Windows separators
-        String baseName = originalName.replaceAll("[\\\\/]+", "/");
-        baseName = Paths.get(baseName).getFileName().toString();
-
         String sanitized = baseName
                 .replaceAll("[\\r\\n\\t]", "_")
                 .replaceAll("[\\\\/]", "_")
