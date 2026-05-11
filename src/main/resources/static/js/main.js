@@ -246,6 +246,16 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('convertBtn').addEventListener('click', convertFile);
     document.getElementById('copySummaryBtn').addEventListener('click', copySummaryToClipboard);
 
+    // Tool links (dropdowns/footer)
+    document.querySelectorAll('.tool-link').forEach((link) => {
+        link.addEventListener('click', (e) => {
+            const toolKey = link.dataset.tool;
+            if (toolKey) {
+                setToolAndScroll(toolKey, e);
+            }
+        });
+    });
+
     // Mobile hamburger menu toggle
     const navToggle = document.querySelector('.nav-toggle');
     const nav = document.querySelector('nav');
@@ -283,8 +293,10 @@ window.addEventListener('DOMContentLoaded', () => {
  * Sets the tool and scrolls to the upload section
  * @param {string} toolKey - The tool key
  */
-function setToolAndScroll(toolKey) {
-    event.preventDefault();
+function setToolAndScroll(toolKey, triggerEvent) {
+    if (triggerEvent) {
+        triggerEvent.preventDefault();
+    }
     setTool(toolKey);
     
     // Scroll to the upload section smoothly
@@ -308,12 +320,12 @@ function setupMobileDropdowns() {
         
         // Handle click on dropdown toggle
         link.addEventListener('click', (e) => {
+            e.preventDefault();
             // Only toggle on mobile (screen width <= 768px AND nav is open)
             const isMobile = window.innerWidth <= 768;
             const isNavOpen = document.querySelector('nav').classList.contains('nav-open');
             
             if (isMobile && isNavOpen) {
-                e.preventDefault();
                 const isActive = item.classList.toggle('active');
                 
                 // Close other dropdowns when opening one
@@ -367,7 +379,7 @@ async function convertFile() {
             }
             setStatus(`Merging ${files.length} PDF files...`, 'info');
         } else if (currentTool === 'ai-summarize') {
-            // AI Summarizer - Keep synchronous logic
+            // AI Summarizer - async task flow
             endpoint = `/api/ai/summarize`;
             const summaryLength = document.getElementById('summaryLength').value;
             formData.append('file', files[0]);
@@ -386,9 +398,15 @@ async function convertFile() {
                 return;
             }
 
-            const result = await res.json();
-            displaySummaryResult(result);
-            convertBtn.disabled = false;
+            const responseData = await res.json();
+            const taskId = responseData.taskId;
+            if (!taskId) {
+                setStatus('Error: No task ID received from server.', 'error');
+                convertBtn.disabled = false;
+                return;
+            }
+
+            pollSummaryTaskStatus(taskId, convertBtn);
             return;
         } else if (config.isBatchable && files.length > 1) {
             // Batch conversion for multiple files
@@ -512,6 +530,85 @@ function pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, f
 }
 
 /**
+ * Polls the AI summarization task status every 2 seconds until completion.
+ * @param {string} taskId - The unique task ID
+ * @param {HTMLElement} convertBtn - The convert button element
+ */
+function pollSummaryTaskStatus(taskId, convertBtn) {
+    let pollCount = 0;
+    const maxPolls = 1800; // 1 hour max
+
+    const progressBar = document.getElementById('progressBar');
+    progressBar.classList.remove('hidden');
+
+    const pollInterval = setInterval(async () => {
+        pollCount++;
+
+        try {
+            const res = await fetch(`/api/ai/status/${taskId}`);
+
+            if (!res.ok) {
+                if (res.status === 404) {
+                    clearInterval(pollInterval);
+                    progressBar.classList.add('hidden');
+                    setStatus('Error: Task not found.', 'error');
+                    convertBtn.disabled = false;
+                }
+                return;
+            }
+
+            const taskStatus = await res.json();
+            const status = taskStatus.status;
+
+            if (status === 'PROCESSING' || status === 'PENDING') {
+                setStatus(`Summarizing... please wait (${pollCount * 2} seconds elapsed)`, 'info');
+            } else if (status === 'FAILED') {
+                clearInterval(pollInterval);
+                progressBar.classList.add('hidden');
+                const errorMsg = taskStatus.errorMessage || 'Unknown error occurred';
+                setStatus(`✗ Summarization failed: ${errorMsg}`, 'error');
+                convertBtn.disabled = false;
+            } else if (status === 'COMPLETED') {
+                clearInterval(pollInterval);
+                progressBar.classList.add('hidden');
+                fetchSummaryResult(taskId, convertBtn);
+            }
+
+            if (pollCount >= maxPolls) {
+                clearInterval(pollInterval);
+                progressBar.classList.add('hidden');
+                setStatus('Error: Summarization exceeded maximum time limit.', 'error');
+                convertBtn.disabled = false;
+            }
+        } catch (e) {
+            clearInterval(pollInterval);
+            progressBar.classList.add('hidden');
+            setStatus('Error polling task status: ' + e.message, 'error');
+            convertBtn.disabled = false;
+        }
+    }, 2000);
+}
+
+async function fetchSummaryResult(taskId, convertBtn) {
+    try {
+        const res = await fetch(`/api/ai/result/${taskId}`);
+        if (!res.ok) {
+            const errorData = await res.json();
+            setStatus(`✗ Summary retrieval failed: ${errorData.errorMessage || 'Unknown error'}`, 'error');
+            convertBtn.disabled = false;
+            return;
+        }
+
+        const result = await res.json();
+        displaySummaryResult(result);
+        convertBtn.disabled = false;
+    } catch (e) {
+        setStatus('Error retrieving summary: ' + e.message, 'error');
+        convertBtn.disabled = false;
+    }
+}
+
+/**
  * Downloads the converted file after task completion.
  * @param {string} taskId - The unique task ID
  * @param {string} originalFileName - The filename for download
@@ -586,4 +683,3 @@ function copySummaryToClipboard() {
         setStatus('Failed to copy summary: ' + err.message, 'error');
     });
 }
-

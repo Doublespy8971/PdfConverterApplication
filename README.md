@@ -164,6 +164,9 @@ server.port=8080
 # File upload
 spring.servlet.multipart.max-file-size=100MB
 
+# AI Provider (Optional)
+ai.provider=openai
+
 # OpenAI (Optional)
 openai.api.key=sk-your-key-here
 openai.model=gpt-3.5-turbo
@@ -371,4 +374,3 @@ http://localhost:8080
 ```
 
 **Enjoy your PDF Converter Application!** 🚀
-

@@ -2,6 +2,8 @@ package com.pm.pdfconverterapplication.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -16,6 +18,16 @@ public class TaskRegistryService {
 
     private static final Logger logger = LoggerFactory.getLogger(TaskRegistryService.class);
     private final Map<String, TaskStatus> taskRegistry = new ConcurrentHashMap<>();
+    private final long completedRetentionMillis;
+    private final long processingTimeoutMillis;
+
+    public TaskRegistryService(
+            @Value("${app.tasks.completed-retention-hours:2}") long completedRetentionHours,
+            @Value("${app.tasks.processing-timeout-hours:6}") long processingTimeoutHours
+    ) {
+        this.completedRetentionMillis = completedRetentionHours * 60 * 60 * 1000;
+        this.processingTimeoutMillis = processingTimeoutHours * 60 * 60 * 1000;
+    }
 
     /**
      * Represents the status of an asynchronous conversion task.
@@ -202,5 +214,24 @@ public class TaskRegistryService {
         metrics.put("failedTasks", taskRegistry.values().stream().filter(t -> "FAILED".equals(t.getStatus())).count());
         return metrics;
     }
-}
 
+    @Scheduled(fixedRateString = "${app.tasks.cleanup-interval-ms:3600000}")
+    public void cleanupExpiredTasks() {
+        cleanupExpiredTasks(System.currentTimeMillis());
+    }
+
+    void cleanupExpiredTasks(long nowMillis) {
+        taskRegistry.entrySet().removeIf(entry -> shouldExpire(entry.getValue(), nowMillis));
+    }
+
+    private boolean shouldExpire(TaskStatus taskStatus, long nowMillis) {
+        String status = taskStatus.getStatus();
+        if ("COMPLETED".equals(status) || "FAILED".equals(status)) {
+            return nowMillis - taskStatus.getUpdatedAt() > completedRetentionMillis;
+        }
+        if ("PENDING".equals(status) || "PROCESSING".equals(status)) {
+            return nowMillis - taskStatus.getCreatedAt() > processingTimeoutMillis;
+        }
+        return false;
+    }
+}

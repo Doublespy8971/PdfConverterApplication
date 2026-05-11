@@ -14,7 +14,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests -q
 
 # Stage 2: Runtime image with LibreOffice
-FROM eclipse-temurin:21-jdk-jammy
+FROM eclipse-temurin:21-jre-jammy
 
 # Install LibreOffice and required dependencies for headless conversion
 RUN apt-get update && apt-get install -y \
@@ -25,7 +25,6 @@ RUN apt-get update && apt-get install -y \
     libreoffice-common \
     libreoffice-java-common \
     ure \
-    default-jre \
     fonts-liberation \
     fonts-dejavu \
     libcairo2 \
@@ -41,11 +40,17 @@ RUN apt-get update && apt-get install -y \
 # Create tmp directory for LibreOffice
 RUN mkdir -p /tmp && chmod 1777 /tmp
 
+# Create non-root user
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin appuser
+
 # Set working directory
 WORKDIR /app
 
 # Copy the built JAR from builder stage
 COPY --from=builder /build/target/pdf-converter-0.0.1-SNAPSHOT.jar app.jar
+
+# Adjust permissions for non-root user
+RUN chown -R appuser:appuser /app
 
 # Expose port
 EXPOSE 8080
@@ -58,6 +63,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 ENV HOME=/tmp
 ENV JAVA_OPTS="-Xmx512m -Xms256m"
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Use non-root user
+USER appuser
 
+# Run the application
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

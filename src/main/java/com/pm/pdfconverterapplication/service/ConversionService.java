@@ -1,30 +1,38 @@
 package com.pm.pdfconverterapplication.service;
 
+import com.pm.pdfconverterapplication.util.FileNameUtils;
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDResources;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.graphics.PDXObject;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFSlide;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
-import java.io.ByteArrayInputStream;
 
 @Service
 public class ConversionService {
@@ -56,26 +64,7 @@ public class ConversionService {
         ToolDefinition toolDefinition = getToolDefinition(tool);
         String extension = getFileExtension(file.getOriginalFilename());
         validateToolAndExtension(toolDefinition, extension);
-
-        return switch (tool.toLowerCase(Locale.ROOT)) {
-            case "pdf-to-images" -> convertPdfToImages(file, toolDefinition);
-            case "pdf-to-word" -> convertPdfToWord(file, toolDefinition);
-            case "pdf-to-excel" -> convertPdfToExcel(file, toolDefinition);
-            case "pdf-to-ppt" -> convertPdfToPpt(file, toolDefinition);
-            case "images-to-pdf" -> convertImagesToPdf(file, toolDefinition);
-            case "split-pdf" -> splitPdf(file, toolDefinition);
-            case "merge-pdf" -> mergePdf(file, toolDefinition);
-            case "compress-pdf" -> compressPdf(file, toolDefinition);
-            case "word-to-pdf", "excel-to-pdf", "powerpoint-to-pdf" -> {
-                if (libreOfficeConverter != null && libreOfficeConverter.isLibreOfficeAvailable()) {
-                    byte[] pdfBytes = libreOfficeConverter.convertOfficeDocumentToPdf(file);
-                    yield new ConversionResult(pdfBytes, buildOutputFileName(file.getOriginalFilename(), "pdf"), toolDefinition.contentType());
-                } else {
-                    throw new UnsupportedOperationException("LibreOffice is not available. Please ensure LibreOffice is installed or use the Docker version for automatic setup.");
-                }
-            }
-            default -> throw new IllegalArgumentException("Unknown tool: " + tool);
-        };
+        return convertSingleFile(file, tool, toolDefinition);
     }
 
     private ConversionResult convertPdfToWord(MultipartFile file, ToolDefinition toolDefinition) throws Exception {
@@ -404,33 +393,22 @@ public class ConversionService {
 
     private ConversionResult compressPdf(MultipartFile file, ToolDefinition toolDefinition) throws Exception {
         try (InputStream inputStream = file.getInputStream();
-             PDDocument document = PDDocument.load(inputStream);
-             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+              PDDocument document = PDDocument.load(inputStream);
+              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
-            // Process each page to ensure optimal compression
-            int pageCount = document.getNumberOfPages();
-            for (int i = 0; i < pageCount; i++) {
-                // Accessing pages to ensure they are processed
-                document.getPage(i);
-            }
+            compressImages(document);
 
-            // Save with compression enabled (default behavior of PDFBox)
             document.save(outputStream);
             return new ConversionResult(outputStream.toByteArray(), buildOutputFileName(file.getOriginalFilename(), "pdf"), toolDefinition.contentType());
         }
     }
 
     private String getFileExtension(String fileName) {
-        if (fileName == null || !fileName.contains(".")) return "";
-        return fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+        return FileNameUtils.getSafeExtension(fileName);
     }
 
     private String getBaseName(String fileName) {
-        if (fileName == null || fileName.isBlank()) {
-            return "converted";
-        }
-        int dotIndex = fileName.lastIndexOf('.');
-        return dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
+        return FileNameUtils.getSafeBaseName(fileName);
     }
 
     private String buildOutputFileName(String originalFilename, String outputExtension) {
@@ -461,5 +439,93 @@ public class ConversionService {
     }
 
     private record ToolDefinition(String key, String outputExtension, String contentType, Set<String> allowedExtensions) {
+    }
+
+    private void compressImages(PDDocument document) throws IOException {
+        for (PDPage page : document.getPages()) {
+            PDResources resources = page.getResources();
+            if (resources == null) {
+                continue;
+            }
+
+            for (COSName name : resources.getXObjectNames()) {
+                PDXObject xObject = resources.getXObject(name);
+                if (!(xObject instanceof PDImageXObject imageObject)) {
+                    continue;
+                }
+
+                BufferedImage image = imageObject.getImage();
+                if (image == null) {
+                    continue;
+                }
+
+                long pixelCount = (long) image.getWidth() * (long) image.getHeight();
+                if (pixelCount < 500_000) {
+                    continue;
+                }
+
+                BufferedImage processedImage = downscaleImage(toRgbImage(image), 2000);
+                byte[] compressedBytes = encodeJpeg(processedImage, 0.75f);
+                PDImageXObject compressedImage = PDImageXObject.createFromByteArray(document, compressedBytes, "compressed");
+                resources.put(name, compressedImage);
+            }
+        }
+    }
+
+    private BufferedImage toRgbImage(BufferedImage image) {
+        if (image.getType() == BufferedImage.TYPE_INT_RGB) {
+            return image;
+        }
+        BufferedImage rgbImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = rgbImage.createGraphics();
+        graphics.setColor(Color.WHITE);
+        graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+        graphics.drawImage(image, 0, 0, null);
+        graphics.dispose();
+        return rgbImage;
+    }
+
+    private BufferedImage downscaleImage(BufferedImage image, int maxDimension) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        if (width <= maxDimension && height <= maxDimension) {
+            return image;
+        }
+
+        double scale = Math.min((double) maxDimension / width, (double) maxDimension / height);
+        int newWidth = Math.max(1, (int) Math.round(width * scale));
+        int newHeight = Math.max(1, (int) Math.round(height * scale));
+
+        BufferedImage scaled = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = scaled.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        graphics.drawImage(image, 0, 0, newWidth, newHeight, null);
+        graphics.dispose();
+        return scaled;
+    }
+
+    private byte[] encodeJpeg(BufferedImage image, float quality) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpeg");
+        if (!writers.hasNext()) {
+            ImageIO.write(image, "PNG", outputStream);
+            return outputStream.toByteArray();
+        }
+
+        ImageWriter writer = writers.next();
+        ImageWriteParam param = writer.getDefaultWriteParam();
+        if (param.canWriteCompressed()) {
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(quality);
+        }
+
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(outputStream)) {
+            writer.setOutput(ios);
+            writer.write(null, new IIOImage(image, null, null), param);
+        } finally {
+            writer.dispose();
+        }
+
+        return outputStream.toByteArray();
     }
 }
