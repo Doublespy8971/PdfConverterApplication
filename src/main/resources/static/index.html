@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocConvert Pro - Document Conversion Made Easy</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<svg aria-hidden="true" focusable="false" class="hidden-icon">
+    <symbol id="docconvert-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <rect x="20" y="15" width="60" height="70" rx="5" fill="#3B82F6"/>
+        <circle cx="50" cy="35" r="8" fill="#FFFFFF" opacity="0.9"/>
+        <rect x="30" y="50" width="40" height="3" fill="#FFFFFF" opacity="0.8"/>
+        <rect x="30" y="58" width="40" height="3" fill="#FFFFFF" opacity="0.8"/>
+        <rect x="30" y="66" width="30" height="3" fill="#FFFFFF" opacity="0.8"/>
+    </symbol>
+</svg>
+<!-- Navigation -->
+<nav>
+    <div class="nav-container">
+        <a href="#" class="nav-logo">
+            <svg viewBox="0 0 100 100">
+                <use href="#docconvert-logo"></use>
+            </svg>
+            <span>DocConvert</span>
+        </a>
+        <ul class="nav-links">
+            <li class="nav-item-dropdown">
+                <a href="#" class="nav-link-dropdown">PDF Tools</a>
+                <ul class="dropdown-menu">
+                    <li><a href="#" class="tool-link" data-tool="merge-pdf">Merge PDF</a></li>
+                    <li><a href="#" class="tool-link" data-tool="split-pdf">Split PDF</a></li>
+                    <li><a href="#" class="tool-link" data-tool="compress-pdf">Compress PDF</a></li>
+                    <li><a href="#" class="tool-link" data-tool="pdf-to-word">PDF to Word</a></li>
+                    <li><a href="#" class="tool-link" data-tool="pdf-to-excel">PDF to Excel</a></li>
+                    <li><a href="#" class="tool-link" data-tool="pdf-to-ppt">PDF to PowerPoint</a></li>
+                    <li><a href="#" class="tool-link" data-tool="pdf-to-images">PDF to Images</a></li>
+                </ul>
+            </li>
+            <li class="nav-item-dropdown">
+                <a href="#" class="nav-link-dropdown">Convert to PDF</a>
+                <ul class="dropdown-menu">
+                    <li><a href="#" class="tool-link" data-tool="word-to-pdf">Word to PDF</a></li>
+                    <li><a href="#" class="tool-link" data-tool="excel-to-pdf">Excel to PDF</a></li>
+                    <li><a href="#" class="tool-link" data-tool="powerpoint-to-pdf">PowerPoint to PDF</a></li>
+                    <li><a href="#" class="tool-link" data-tool="images-to-pdf">Images to PDF</a></li>
+                </ul>
+            </li>
+            <li><a href="#toolSelection">All Tools</a></li>
+        </ul>
+        <button class="nav-toggle" aria-label="Toggle menu">☰</button>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<main>
+    <div class="container">
+        <header>
+            <div class="logo-section">
+                <svg class="logo" viewBox="0 0 100 100">
+                    <use href="#docconvert-logo"></use>
+                </svg>
+                <h1>DocConvert Pro</h1>
+            </div>
+            <p class="subtitle">Fast & Easy Document Conversion Tool</p>
+        </header>
+
+        <div class="tools-grid" id="toolSelection">
+
+            <article class="tool-card" data-tool="word-to-pdf">
+                <div class="tool-icon"></div>
+                <h2>Word to PDF</h2>
+                <p>Convert DOC, DOCX, ODT, RTF, and TXT files to PDF.</p>
+            </article>
+
+            <article class="tool-card" data-tool="excel-to-pdf">
+                <div class="tool-icon"></div>
+                <h2>Excel to PDF</h2>
+                <p>Convert XLS, XLSX, ODS, and CSV files to PDF.</p>
+            </article>
+
+            <article class="tool-card" data-tool="powerpoint-to-pdf">
+                <div class="tool-icon">️</div>
+                <h2>PowerPoint to PDF</h2>
+                <p>Convert PPT, PPTX, and ODP slides to PDF.</p>
+            </article>
+
+            <article class="tool-card" data-tool="images-to-pdf">
+                <div class="tool-icon">️</div>
+                <h2>Images to PDF</h2>
+                <p>Convert JPG, PNG, GIF, BMP, and WebP to PDF.</p>
+            </article>
+
+            <article class="tool-card" data-tool="pdf-to-images">
+                <div class="tool-icon"></div>
+                <h2>PDF to Images</h2>
+                <p>Extract all pages from PDF as PNG images in a ZIP file.</p>
+            </article>
+
+            <article class="tool-card" data-tool="pdf-to-word">
+                <div class="tool-icon">↔</div>
+                <h2>PDF to Word</h2>
+                <p>Convert PDF to editable DOCX documents.</p>
+            </article>
+
+            <article class="tool-card" data-tool="pdf-to-excel">
+                <div class="tool-icon">↔</div>
+                <h2>PDF to Excel</h2>
+                <p>Convert PDF to XLSX spreadsheets.</p>
+            </article>
+
+            <article class="tool-card" data-tool="pdf-to-ppt">
+                <div class="tool-icon">↔️</div>
+                <h2>PDF to PowerPoint</h2>
+                <p>Convert PDF to editable PPTX presentations.</p>
+            </article>
+
+            <article class="tool-card" data-tool="split-pdf" id="split-pdf">
+                <div class="tool-icon">✂️</div>
+                <h2>Split PDF</h2>
+                <p>Split PDF into individual pages and download as separate files.</p>
+            </article>
+
+            <article class="tool-card" data-tool="merge-pdf" id="merge-pdf">
+                <div class="tool-icon"></div>
+                <h2>Merge PDF</h2>
+                <p>Combine multiple PDF files into one document.</p>
+            </article>
+
+            <article class="tool-card" data-tool="compress-pdf" id="compress-pdf">
+                <div class="tool-icon">️</div>
+                <h2>Compress PDF</h2>
+                <p>Reduce PDF file size while maintaining quality.</p>
+            </article>
+
+            <article class="tool-card" data-tool="ai-summarize">
+                <div class="tool-icon"></div>
+                <h2>AI Summarizer</h2>
+                <p>Get intelligent AI-powered summaries of PDF documents.</p>
+            </article>
+        </div>
+
+        <div class="card upload-card hidden" id="uploadSection">
+            <div class="upload-header">
+                <h2 id="toolTitle">Convert to PDF</h2>
+                <button class="back-btn" id="backBtn" type="button">← Back</button>
+            </div>
+
+            <!-- AI Summarizer specific section -->
+            <div id="aiSummarizerSection" class="hidden">
+                <label for="summaryLength" class="summary-label">Summary Length:</label>
+                <select id="summaryLength" class="summary-select">
+                    <option value="short">Short (2-3 sentences)</option>
+                    <option value="medium" selected>Medium (3-4 sentences)</option>
+                    <option value="long">Long (5-7 sentences)</option>
+                </select>
+            </div>
+
+            <div class="drop-zone" id="dropZone">
+                <p id="dropText" class="drop-text-main">Select PDF files</p>
+                <p class="drop-text-sub">or drop PDFs here</p>
+                <input type="file" id="fileInput">
+            </div>
+            <button class="convert-btn" id="convertBtn" disabled>Convert</button>
+
+            <!-- Progress Bar -->
+            <div id="progressBar" class="progress-bar hidden">
+                <div class="progress-fill"></div>
+            </div>
+
+            <!-- Summary output section -->
+            <div id="summaryOutput" class="hidden">
+                <h3>Summary Result</h3>
+                <div class="summary-info">
+                    <span id="summaryStats"></span>
+                </div>
+                <div id="summaryText" class="summary-box"></div>
+                <button id="copySummaryBtn" class="copy-btn"> Copy Summary</button>
+            </div>
+
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <!-- Placeholder Sections for Footer Links -->
+    <section id="about" class="footer-section">
+        <div class="container">
+            <h2>About</h2>
+            <p>DocConvert Pro is a fast and easy document conversion tool. Convert PDFs, Word documents, Excel spreadsheets, PowerPoint presentations, and images with ease.</p>
+        </div>
+    </section>
+
+    <section id="contact" class="footer-section">
+        <div class="container">
+            <h2>Contact</h2>
+            <p>Have questions or feedback? We'd love to hear from you. Contact us at support@docconvert.local</p>
+        </div>
+    </section>
+
+    <section id="privacy-policy" class="footer-section">
+        <div class="container">
+            <h2>Privacy Policy</h2>
+            <p>Your privacy is important to us. DocConvert Pro does not store or share your uploaded files. All conversions are processed locally on our servers and deleted after completion.</p>
+        </div>
+    </section>
+
+    <section id="terms-of-service" class="footer-section">
+        <div class="container">
+            <h2>Terms of Service</h2>
+            <p>By using DocConvert Pro, you agree to our terms of service. We provide this tool "as is" without warranties. Users are responsible for ensuring converted files meet their needs.</p>
+        </div>
+    </section>
+</main>
+
+<!-- Footer -->
+<footer>
+    <div class="footer-container">
+        <div class="footer-column">
+            <h3>PDF Tools</h3>
+            <ul>
+                <li><a href="#" class="tool-link" data-tool="merge-pdf">Merge PDF</a></li>
+                <li><a href="#" class="tool-link" data-tool="split-pdf">Split PDF</a></li>
+                <li><a href="#" class="tool-link" data-tool="compress-pdf">Compress PDF</a></li>
+                <li><a href="#" class="tool-link" data-tool="word-to-pdf">Word to PDF</a></li>
+                <li><a href="#toolSelection">More Tools</a></li>
+            </ul>
+        </div>
+        <div class="footer-column">
+            <h3>Company</h3>
+            <ul>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </div>
+        <div class="footer-column">
+            <h3>Legal</h3>
+            <ul>
+                <li><a href="#privacy-policy">Privacy Policy</a></li>
+                <li><a href="#terms-of-service">Terms of Service</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; 2026 DocConvert Pro. All rights reserved.</p>
+    </div>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>
