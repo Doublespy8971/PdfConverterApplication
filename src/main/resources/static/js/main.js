@@ -471,6 +471,7 @@ async function convertFile() {
 function pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, fileCount) {
     let pollCount = 0;
     const maxPolls = 1800; // 1 hour max (1800 * 2 seconds)
+    const pollIntervalMs = 2000;
 
     // Show progress bar when polling starts
     const progressBar = document.getElementById('progressBar');
@@ -497,7 +498,8 @@ function pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, f
 
             if (status === 'PROCESSING' || status === 'PENDING') {
                 // Still processing
-                setStatus(`Processing... please wait (${pollCount * 2} seconds elapsed)`, 'info');
+                const elapsedSeconds = Math.round((pollCount * pollIntervalMs) / 1000);
+                setStatus(`Processing... please wait (${elapsedSeconds} seconds elapsed)`, 'info');
             } else if (status === 'FAILED') {
                 // Conversion failed - hide progress bar
                 clearInterval(pollInterval);
@@ -526,7 +528,7 @@ function pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, f
             setStatus('Error polling task status: ' + e.message, 'error');
             convertBtn.disabled = false;
         }
-    }, 2000); // Poll every 2 seconds
+    }, pollIntervalMs); // Poll every 2 seconds
 }
 
 /**
@@ -537,6 +539,7 @@ function pollTaskStatus(taskId, config, originalFileName, isBatch, convertBtn, f
 function pollSummaryTaskStatus(taskId, convertBtn) {
     let pollCount = 0;
     const maxPolls = 1800; // 1 hour max
+    const pollIntervalMs = 2000;
 
     const progressBar = document.getElementById('progressBar');
     progressBar.classList.remove('hidden');
@@ -561,7 +564,8 @@ function pollSummaryTaskStatus(taskId, convertBtn) {
             const status = taskStatus.status;
 
             if (status === 'PROCESSING' || status === 'PENDING') {
-                setStatus(`Summarizing... please wait (${pollCount * 2} seconds elapsed)`, 'info');
+                const elapsedSeconds = Math.round((pollCount * pollIntervalMs) / 1000);
+                setStatus(`Summarizing... please wait (${elapsedSeconds} seconds elapsed)`, 'info');
             } else if (status === 'FAILED') {
                 clearInterval(pollInterval);
                 progressBar.classList.add('hidden');
@@ -586,7 +590,7 @@ function pollSummaryTaskStatus(taskId, convertBtn) {
             setStatus('Error polling task status: ' + e.message, 'error');
             convertBtn.disabled = false;
         }
-    }, 2000);
+    }, pollIntervalMs);
 }
 
 /**

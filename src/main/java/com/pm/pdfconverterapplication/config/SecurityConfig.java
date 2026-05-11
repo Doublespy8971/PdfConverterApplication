@@ -21,6 +21,17 @@ public class SecurityConfig {
 
     @Value("${app.cors.allowed-origin:http://localhost:8080}")
     private String allowedOrigin;
+    private static final String CSP_POLICY = String.join(" ",
+            "default-src 'self';",
+            "img-src 'self' data:;",
+            "style-src 'self';",
+            "script-src 'self';",
+            "connect-src 'self';",
+            "font-src 'self';",
+            "object-src 'none';",
+            "frame-ancestors 'none';",
+            "base-uri 'self';"
+    );
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -61,10 +72,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))  // Protect browser UI, allow API calls
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))  // Use centralized CORS config
             .headers(headers -> headers
-                    .contentSecurityPolicy(csp -> csp.policyDirectives(
-                            "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; " +
-                                    "connect-src 'self'; font-src 'self'; object-src 'none'; " +
-                                    "frame-ancestors 'none'; base-uri 'self'"))
+                    .contentSecurityPolicy(csp -> csp.policyDirectives(CSP_POLICY))
                     .frameOptions(frame -> frame.deny())
                     .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
                     .permissionsPolicy(permissions -> permissions.policy("geolocation=(), microphone=(), camera=()"))

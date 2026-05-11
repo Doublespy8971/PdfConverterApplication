@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Service to track and manage asynchronous conversion tasks.
@@ -25,8 +26,8 @@ public class TaskRegistryService {
             @Value("${app.tasks.completed-retention-hours:2}") long completedRetentionHours,
             @Value("${app.tasks.processing-timeout-hours:6}") long processingTimeoutHours
     ) {
-        this.completedRetentionMillis = completedRetentionHours * 60 * 60 * 1000;
-        this.processingTimeoutMillis = processingTimeoutHours * 60 * 60 * 1000;
+        this.completedRetentionMillis = TimeUnit.HOURS.toMillis(completedRetentionHours);
+        this.processingTimeoutMillis = TimeUnit.HOURS.toMillis(processingTimeoutHours);
     }
 
     /**

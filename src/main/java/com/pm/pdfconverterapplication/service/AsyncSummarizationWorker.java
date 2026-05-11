@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 
 @Service
 public class AsyncSummarizationWorker {
@@ -112,7 +113,7 @@ public class AsyncSummarizationWorker {
             Path dirPath = Path.of(filePath).getParent();
             if (dirPath != null && dirPath.getFileName().toString().startsWith("ai_")) {
                 Files.walk(dirPath)
-                        .sorted((a, b) -> b.compareTo(a))
+                        .sorted(Comparator.reverseOrder())
                         .forEach(path -> {
                             try {
                                 Files.deleteIfExists(path);
