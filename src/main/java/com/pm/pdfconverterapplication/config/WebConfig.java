@@ -21,8 +21,9 @@ public class WebConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/api/convert/status/**",
                         "/api/convert/download/**",
-                        "/api/convert/metrics"
+                        "/api/convert/metrics",
+                        "/api/ai/status/**",
+                        "/api/ai/result/**"
                 );
     }
 }
-

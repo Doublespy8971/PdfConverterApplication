@@ -10,6 +10,7 @@ services:
       - "8080:8080"
     environment:
       - JAVA_OPTS=-Xmx512m -Xms256m
+      - AI_PROVIDER=${AI_PROVIDER:-openai}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-add-your-openai-api-key-here}
       - OPENAI_MODEL=gpt-3.5-turbo
     volumes:
@@ -21,4 +22,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-

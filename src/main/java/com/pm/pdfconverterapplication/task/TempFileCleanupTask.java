@@ -13,12 +13,19 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 @Component
 public class TempFileCleanupTask {
 
     private static final Logger logger = LoggerFactory.getLogger(TempFileCleanupTask.class);
-    private static final String TEMP_DIR_PREFIX = "lo_convert_";
+    private static final List<String> TEMP_DIR_PREFIXES = List.of(
+            "lo_convert_",
+            "convert_",
+            "merge_",
+            "batch_",
+            "ai_"
+    );
     private static final long CLEANUP_AGE_HOURS = 2;
 
     /**
@@ -40,8 +47,8 @@ public class TempFileCleanupTask {
             // Walk through the temp directory
             try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(tempDir)) {
                 for (Path path : directoryStream) {
-                    // Check if it's a directory and starts with lo_convert_ prefix
-                    if (Files.isDirectory(path) && path.getFileName().toString().startsWith(TEMP_DIR_PREFIX)) {
+                    // Check if it's a directory and matches known temp prefixes
+                    if (Files.isDirectory(path) && matchesTempPrefix(path.getFileName().toString())) {
                         // Check if directory is older than 2 hours
                         if (isOlderThan2Hours(path)) {
                             try {
@@ -65,6 +72,10 @@ public class TempFileCleanupTask {
         } catch (IOException e) {
             logger.error("Error during temp file cleanup: {}", e.getMessage(), e);
         }
+    }
+
+    private boolean matchesTempPrefix(String directoryName) {
+        return TEMP_DIR_PREFIXES.stream().anyMatch(directoryName::startsWith);
     }
 
     /**
@@ -111,5 +122,4 @@ public class TempFileCleanupTask {
         }
     }
 }
-
 
