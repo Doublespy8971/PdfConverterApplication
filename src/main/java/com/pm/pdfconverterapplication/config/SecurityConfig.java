@@ -3,10 +3,12 @@ package com.pm.pdfconverterapplication.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -19,6 +21,17 @@ public class SecurityConfig {
 
     @Value("${app.cors.allowed-origin:http://localhost:8080}")
     private String allowedOrigin;
+    private static final String CSP_POLICY = String.join(" ",
+            "default-src 'self';",
+            "img-src 'self' data:;",
+            "style-src 'self';",
+            "script-src 'self';",
+            "connect-src 'self';",
+            "font-src 'self';",
+            "object-src 'none';",
+            "frame-ancestors 'none';",
+            "base-uri 'self';"
+    );
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -58,6 +71,13 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))  // Protect browser UI, allow API calls
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))  // Use centralized CORS config
+            .headers(headers -> headers
+                    .contentSecurityPolicy(csp -> csp.policyDirectives(CSP_POLICY))
+                    .frameOptions(frame -> frame.deny())
+                    .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+                    .permissionsPolicy(permissions -> permissions.policy("geolocation=(), microphone=(), camera=()"))
+                    .contentTypeOptions(Customizer.withDefaults())
+            )
             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable);

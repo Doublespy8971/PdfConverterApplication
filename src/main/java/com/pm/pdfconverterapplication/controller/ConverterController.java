@@ -3,6 +3,7 @@ package com.pm.pdfconverterapplication.controller;
 import com.pm.pdfconverterapplication.service.AsyncConversionWorker;
 import com.pm.pdfconverterapplication.service.TaskRegistryService;
 import com.pm.pdfconverterapplication.service.TaskRegistryService.TaskStatus;
+import com.pm.pdfconverterapplication.util.FileNameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -65,8 +66,9 @@ public class ConverterController {
              String[] filePaths = new String[files.length];
              String[] filenames = new String[files.length];
              for (int i = 0; i < files.length; i++) {
-                 filenames[i] = files[i].getOriginalFilename();
-                 Path filePath = Path.of(tempDir, i + "_" + filenames[i]);
+                 String safeFilename = FileNameUtils.sanitizeFileName(files[i].getOriginalFilename());
+                 filenames[i] = safeFilename;
+                 Path filePath = Path.of(tempDir, i + "_" + safeFilename);
                  files[i].transferTo(filePath);  // Streaming save, not getBytes()
                  filePaths[i] = filePath.toString();
              }
@@ -102,16 +104,17 @@ public class ConverterController {
 
              // Initiate a task
              String taskId = taskRegistryService.initiateTask();
-             logger.info("Conversion initiated - Task: {}, Tool: {}, File: {}", taskId, tool, file.getOriginalFilename());
+             String safeFilename = FileNameUtils.sanitizeFileName(file.getOriginalFilename());
+             logger.info("Conversion initiated - Task: {}, Tool: {}, File: {}", taskId, tool, safeFilename);
 
              // Save file to temporary storage (streaming transfer, not getBytes())
              String tempDir = System.getProperty("java.io.tmpdir") + File.separator + "convert_" + taskId;
              Files.createDirectories(Path.of(tempDir));
-             Path filePath = Path.of(tempDir, file.getOriginalFilename());
+             Path filePath = Path.of(tempDir, safeFilename);
              file.transferTo(filePath);  // Streaming save, not getBytes()
 
              // Start async worker
-             asyncConversionWorker.convertFileAsync(filePath.toString(), file.getOriginalFilename(), tool, taskId);
+             asyncConversionWorker.convertFileAsync(filePath.toString(), safeFilename, tool, taskId);
 
              // Return 202 Accepted with task ID
              Map<String, Object> response = new HashMap<>();
@@ -156,8 +159,9 @@ public class ConverterController {
              String[] filePaths = new String[files.length];
              String[] filenames = new String[files.length];
              for (int i = 0; i < files.length; i++) {
-                 filenames[i] = files[i].getOriginalFilename();
-                 Path filePath = Path.of(tempDir, i + "_" + filenames[i]);
+                 String safeFilename = FileNameUtils.sanitizeFileName(files[i].getOriginalFilename());
+                 filenames[i] = safeFilename;
+                 Path filePath = Path.of(tempDir, i + "_" + safeFilename);
                  files[i].transferTo(filePath);  // Streaming save, not getBytes()
                  filePaths[i] = filePath.toString();
              }
@@ -249,7 +253,9 @@ public class ConverterController {
                 headers.setContentType(MediaType.parseMediaType(task.getContentType()));
                 headers.setContentDispositionFormData("attachment", task.getFileName());
                 logger.info("Downloading completed task: {}, File: {}", taskId, task.getFileName());
-                return new ResponseEntity<>(task.getResultContent(), headers, HttpStatus.OK);
+                ResponseEntity<byte[]> response = new ResponseEntity<>(task.getResultContent(), headers, HttpStatus.OK);
+                taskRegistryService.removeTask(taskId);
+                return response;
             }
 
             // Unknown status
@@ -274,4 +280,3 @@ public class ConverterController {
         }
     }
 }
-

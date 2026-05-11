@@ -1,20 +1,36 @@
 package com.pm.pdfconverterapplication.controller;
 
+import com.google.gson.Gson;
 import com.pm.pdfconverterapplication.model.SummaryResult;
 import com.pm.pdfconverterapplication.provider.LLMProvider;
+import com.pm.pdfconverterapplication.service.AsyncSummarizationWorker;
+import com.pm.pdfconverterapplication.service.TaskRegistryService;
+import com.pm.pdfconverterapplication.service.TaskRegistryService.TaskStatus;
+import com.pm.pdfconverterapplication.util.FileNameUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ai")
 public class AIController {
 
     private final LLMProvider llmProvider;
+    private final AsyncSummarizationWorker asyncSummarizationWorker;
+    private final TaskRegistryService taskRegistryService;
+    private final Gson gson = new Gson();
 
-    public AIController(LLMProvider llmProvider) {
+    public AIController(LLMProvider llmProvider, AsyncSummarizationWorker asyncSummarizationWorker, TaskRegistryService taskRegistryService) {
         this.llmProvider = llmProvider;
+        this.asyncSummarizationWorker = asyncSummarizationWorker;
+        this.taskRegistryService = taskRegistryService;
     }
 
     @PostMapping("/summarize")
@@ -26,13 +42,26 @@ public class AIController {
                 return ResponseEntity.badRequest().body("File is empty");
             }
 
-            String extension = getFileExtension(file.getOriginalFilename());
+            String extension = FileNameUtils.getSafeExtension(file.getOriginalFilename());
             if (!extension.equals("pdf")) {
                 return ResponseEntity.badRequest().body("Only PDF files are supported for summarization");
             }
 
-            SummaryResult result = llmProvider.summarizePdf(file, summaryLength);
-            return ResponseEntity.ok(result);
+            String taskId = taskRegistryService.initiateTask();
+
+            String safeFilename = FileNameUtils.sanitizeFileName(file.getOriginalFilename());
+            String tempDir = System.getProperty("java.io.tmpdir") + java.io.File.separator + "ai_" + taskId;
+            Files.createDirectories(Path.of(tempDir));
+            Path filePath = Path.of(tempDir, safeFilename);
+            file.transferTo(filePath);
+
+            asyncSummarizationWorker.summarizeAsync(filePath.toString(), safeFilename, summaryLength, taskId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("taskId", taskId);
+            response.put("status", "PENDING");
+            response.put("message", "AI summarization initiated");
+            return ResponseEntity.accepted().body(response);
 
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -55,13 +84,56 @@ public class AIController {
         }
     }
 
-    private String getFileExtension(String fileName) {
-        if (fileName == null || !fileName.contains(".")) return "";
-        return fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+    @GetMapping("/status/{taskId}")
+    public ResponseEntity<?> getSummaryTaskStatus(@PathVariable String taskId) {
+        if (!taskRegistryService.taskExists(taskId)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        TaskStatus task = taskRegistryService.getTask(taskId);
+        Map<String, Object> response = new HashMap<>();
+        response.put("taskId", taskId);
+        response.put("status", task.getStatus());
+        response.put("errorMessage", task.getErrorMessage());
+        response.put("createdAt", task.getCreatedAt());
+        response.put("updatedAt", task.getUpdatedAt());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/result/{taskId}")
+    public ResponseEntity<?> getSummaryResult(@PathVariable String taskId) {
+        if (!taskRegistryService.taskExists(taskId)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        TaskStatus task = taskRegistryService.getTask(taskId);
+        if ("PENDING".equals(task.getStatus()) || "PROCESSING".equals(task.getStatus())) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("taskId", taskId);
+            response.put("status", task.getStatus());
+            response.put("message", "Summarization is still processing. Please try again shortly.");
+            return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+        }
+
+        if ("FAILED".equals(task.getStatus())) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("taskId", taskId);
+            response.put("status", "FAILED");
+            response.put("errorMessage", task.getErrorMessage());
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        if ("COMPLETED".equals(task.getStatus())) {
+            String payload = new String(task.getResultContent(), StandardCharsets.UTF_8);
+            SummaryResult result = gson.fromJson(payload, SummaryResult.class);
+            taskRegistryService.removeTask(taskId);
+            return ResponseEntity.ok(result);
+        }
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unknown task status: " + task.getStatus());
     }
 
     public record ApiStatusResponse(boolean ready, String message) {}
 }
-
 
 

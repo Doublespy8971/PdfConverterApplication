@@ -2,6 +2,7 @@ package com.pm.pdfconverterapplication.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import com.pm.pdfconverterapplication.util.FileNameUtils;
 import java.io.File;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -138,8 +139,8 @@ public class LibreOfficeConverterService {
     }
 
     private String getFileExtension(String fileName) {
-        if (fileName == null || !fileName.contains(".")) return "";
-        return fileName.substring(fileName.lastIndexOf("."));
+        String extension = FileNameUtils.getSafeExtension(fileName);
+        return extension.isBlank() ? "" : "." + extension;
     }
 
     public boolean isLibreOfficeAvailable() {
@@ -162,4 +163,3 @@ public class LibreOfficeConverterService {
         }
     }
 }
-

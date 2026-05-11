@@ -46,13 +46,6 @@
             <version>2.0.33</version>
         </dependency>
 
-        <!-- Image Processing -->
-        <dependency>
-            <groupId>org.imgscalr</groupId>
-            <artifactId>imgscalr-lib</artifactId>
-            <version>4.2</version>
-        </dependency>
-
         <!-- Apache Commons -->
         <dependency>
             <groupId>commons-io</groupId>
