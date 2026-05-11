@@ -589,6 +589,11 @@ function pollSummaryTaskStatus(taskId, convertBtn) {
     }, 2000);
 }
 
+/**
+ * Fetches the completed AI summary result.
+ * @param {string} taskId - The unique task ID
+ * @param {HTMLElement} convertBtn - The convert button element
+ */
 async function fetchSummaryResult(taskId, convertBtn) {
     try {
         const res = await fetch(`/api/ai/result/${taskId}`);
