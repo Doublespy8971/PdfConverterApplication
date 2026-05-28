@@ -4,10 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.HashMap;
@@ -78,6 +75,39 @@ public class DiagnosticsController {
     public ResponseEntity<?> health() {
         return ResponseEntity.ok(Map.of("status", "healthy", "timestamp", System.currentTimeMillis()));
     }
+
+    /**
+     * Test POST endpoint with minimal form data.
+     * Use this to diagnose CSRF and CORS issues on POST requests.
+     */
+    @PostMapping("/test-post")
+    public ResponseEntity<?> testPost(
+            HttpServletRequest request,
+            @RequestHeader(value = "Origin", required = false) String origin) {
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("method", "POST");
+        response.put("path", request.getRequestURI());
+        response.put("origin", origin != null ? origin : "none");
+        response.put("contentType", request.getContentType());
+        response.put("timestamp", System.currentTimeMillis());
+        response.put("message", "POST request accepted - CSRF protection is not blocking this endpoint");
+
+        logger.info("Diagnostic POST request succeeded - CSRF is properly configured for /api/**");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Test OPTIONS preflight request.
+     * Browsers send OPTIONS before POST for cross-origin requests.
+     * If this works, preflight should succeed.
+     */
+    @RequestMapping(value = "/test-options", method = org.springframework.web.bind.annotation.RequestMethod.OPTIONS)
+    public ResponseEntity<?> testOptions(HttpServletRequest request) {
+        logger.info("Diagnostic OPTIONS request received on {}", request.getRequestURI());
+        return ResponseEntity.ok().header("X-Custom-Header", "OPTIONS-OK").build();
+    }
 }
+
 
 

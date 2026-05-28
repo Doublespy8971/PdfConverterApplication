@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -86,12 +87,26 @@ public class SecurityConfig {
         // 1. Rate limiting (RateLimitingInterceptor) - limits 15 requests/hour per IP
         // 2. CSRF protection for browser UI - protects state-changing operations
         // 3. CORS - restricted to configured allowed-origin (configurable per environment)
+        
+        logger.info("Configuring Security Filter Chain");
+        logger.info("CSRF will be ignored for: /api/**, /api/diagnostics/**");
+        
         http
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))  // Protect browser UI, allow API calls
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))  // Use centralized CORS config
+            // CSRF: Explicitly ignore all /api/** endpoints (stateless API calls)
+            .csrf(csrf -> csrf
+                .ignoringRequestMatchers(
+                    new AntPathRequestMatcher("/api/**"),
+                    new AntPathRequestMatcher("/api/diagnostics/**")
+                )
+            )
+            // CORS: Apply centralized CORS configuration
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // Authorization: Allow public access to all requests
             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            // Disable form login and basic auth (API only)
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable);
+        
         return http.build();
     }
 }
