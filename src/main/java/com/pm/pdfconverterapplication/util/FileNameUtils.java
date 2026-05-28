@@ -19,10 +19,14 @@ public final class FileNameUtils {
     public static String getSafeBaseName(String originalName) {
         String sanitized = sanitizeFileName(originalName);
         int dotIndex = sanitized.lastIndexOf('.');
+        String baseName;
         if (dotIndex > 0) {
-            return sanitized.substring(0, dotIndex);
+            baseName = sanitized.substring(0, dotIndex);
+        } else {
+            baseName = sanitized.isBlank() ? "converted" : sanitized;
         }
-        return sanitized.isBlank() ? "converted" : sanitized;
+        // Strip leading dots and underscores
+        return baseName.replaceAll("^[._ ]+", "");
     }
 
     public static String sanitizeFileName(String originalName) {
