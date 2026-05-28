@@ -12,10 +12,16 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Value("${app.cors.allowed-origin:http://localhost:8080}")
     private String allowedOrigin;
@@ -24,17 +30,35 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Set allowed origin from application.properties
-        config.setAllowedOrigins(List.of(allowedOrigin));
+        // Support comma-separated list in the property and allow origin patterns (wildcards)
+        List<String> origins = Arrays.stream(allowedOrigin.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.toList());
 
-        // Allow GET and POST methods (typical for PDF converter API)
+        if (origins.isEmpty()) {
+            // fallback to localhost
+            origins = List.of("http://localhost:8080");
+        }
+
+        logger.info("Configured CORS allowed origins: {}", origins);
+
+        // If a wildcard is explicitly configured, use allowed origin patterns and disable credentials
+        if (origins.size() == 1 && ("*".equals(origins.getFirst()) || "http://*".equals(origins.getFirst()))) {
+            config.setAllowedOriginPatterns(List.of("*"));
+            config.setAllowCredentials(false);
+        } else {
+            // Use explicit allowed origins and allow credentials (cookies/auth headers)
+            config.setAllowedOrigins(origins);
+            config.setAllowCredentials(true);
+        }
+
+        // Allow methods commonly used by the API
         config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
 
         // Allow all headers to support multipart file uploads
         config.setAllowedHeaders(List.of("*"));
 
-        // Allow credentials if needed (cookies, authorization headers)
-        config.setAllowCredentials(true);
 
         // Cache preflight response for 1 hour
         config.setMaxAge(3600L);
