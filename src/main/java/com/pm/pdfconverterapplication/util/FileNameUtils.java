@@ -7,23 +7,6 @@ public final class FileNameUtils {
     private FileNameUtils() {
     }
 
-    public static String sanitizeFileName(String originalName) {
-        if (originalName == null || originalName.isBlank()) {
-            return "file";
-        }
-
-        String sanitized = baseName
-                .replaceAll("[\\r\\n\\t]", "_")
-                .replaceAll("[\\\\/]", "_")
-                .replaceAll("[^A-Za-z0-9._-]", "_");
-
-        if (sanitized.isBlank()) {
-            return "file";
-        }
-
-        return sanitized;
-    }
-
     public static String getSafeExtension(String originalName) {
         String sanitized = sanitizeFileName(originalName);
         int dotIndex = sanitized.lastIndexOf('.');
@@ -40,5 +23,24 @@ public final class FileNameUtils {
             return sanitized.substring(0, dotIndex);
         }
         return sanitized.isBlank() ? "converted" : sanitized;
+    }
+
+    public static String sanitizeFileName(String originalName) {
+        if (originalName == null || originalName.isBlank()) {
+            return "file";
+        }
+
+        String baseName = Paths.get(originalName).getFileName().toString(); // add this line
+
+        String sanitized = baseName
+                .replaceAll("[\\r\\n\\t]", "_")
+                .replaceAll("[\\\\/]", "_")
+                .replaceAll("[^A-Za-z0-9._-]", "_");
+
+        if (sanitized.isBlank()) {
+            return "file";
+        }
+
+        return sanitized;
     }
 }
