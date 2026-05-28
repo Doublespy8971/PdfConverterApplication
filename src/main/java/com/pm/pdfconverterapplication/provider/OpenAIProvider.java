@@ -26,7 +26,7 @@ import java.io.InputStream;
 @ConditionalOnProperty(name = "ai.provider", havingValue = "openai", matchIfMissing = true)
 public class OpenAIProvider implements LLMProvider {
 
-    @Value("${openai.api.key}")
+    @Value("${openai.api-key}")
     private String apiKey;
 
     @Value("${openai.model}")

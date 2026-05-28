@@ -28,6 +28,13 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // Log environment variable for diagnosis
+        String envVar = System.getenv("APP_CORS_ALLOWED_ORIGIN");
+        logger.info("==== CORS Configuration Debug ====");
+        logger.info("Environment variable APP_CORS_ALLOWED_ORIGIN: {}", envVar != null ? envVar : "NOT SET (using default)");
+        logger.info("Injected @Value allowedOrigin: {}", allowedOrigin);
+        logger.info("====================================");
+
         CorsConfiguration config = new CorsConfiguration();
 
         // Support comma-separated list in the property and allow origin patterns (wildcards)

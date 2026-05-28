@@ -6,8 +6,11 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Bucket4j;
 import io.github.bucket4j.Refill;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.HandlerInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 public class RateLimitingInterceptor implements HandlerInterceptor {
+
+    private static final Logger logger = LoggerFactory.getLogger(RateLimitingInterceptor.class);
 
     // Caffeine cache: stores buckets per IP, evicts after 2 hours of inactivity
     private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
@@ -40,7 +45,7 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+    public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) throws Exception {
         // Get client IP address
         String ipAddress = getClientIpAddress(request);
 
@@ -51,15 +56,19 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
         // Try to consume 1 token
         if (!bucket.tryConsume(1)) {
             // Rate limit exceeded
+            String method = request.getMethod();
+            String path = request.getRequestURI();
+            logger.warn("Rate limit exceeded for IP: {}, Method: {}, Path: {}", ipAddress, method, path);
             response.setStatus(429); // Too Many Requests
-            response.getWriter().write("{\"error\": \"Rate limit exceeded. Maximum 15 requests per hour allowed.\"}");
             response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Rate limit exceeded. Maximum 15 requests per hour allowed per IP. Retry after 60 minutes.\", \"clientIp\": \"" + ipAddress + "\"}");
             return false;
         }
 
         return true;
     }
 
+    @SuppressWarnings("deprecation")
     private Bucket createNewBucket() {
         // Capacity of 15 tokens, refilling 15 tokens every 1 hour
         Bandwidth bandwidth = Bandwidth.classic(15, Refill.intervally(15, Duration.ofHours(1)));
