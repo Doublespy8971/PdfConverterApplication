@@ -189,7 +189,11 @@ function setupDragDrop() {
         fileInput.dispatchEvent(changeEvent);
     }
 
-    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', (e) => {
+        if (e.target !== fileInput) {
+            fileInput.click();
+        }
+    });
     fileInput.addEventListener('change', updateFileDisplay);
 }
 
