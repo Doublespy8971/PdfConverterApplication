@@ -107,6 +107,7 @@ function setTool(toolKey) {
     }
 
     currentTool = toolKey;
+    history.pushState({ tool: toolKey }, '', `?tool=${toolKey}`);
     const fileInput = document.getElementById('fileInput');
     fileInput.value = '';
     fileInput.setAttribute('accept', config.accept);
@@ -146,6 +147,7 @@ function backToTools() {
     document.getElementById('uploadSection').classList.add('hidden');
     document.getElementById('toolSelection').classList.remove('hidden');
     setStatus('', 'info');
+    history.pushState({}, '', '/');
 }
 
 function setupDragDrop() {
