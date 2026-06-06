@@ -30,6 +30,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.*;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -259,6 +260,8 @@ public class ConversionService {
     }
 
     public ConversionResult mergePdfFiles(MultipartFile[] files) throws Exception {
+        List<PDDocument> sourceDocs = new ArrayList<>();
+
         try (PDDocument mergedDocument = new PDDocument();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
@@ -268,24 +271,26 @@ public class ConversionService {
                     throw new IllegalArgumentException("All files must be PDF. Found: " + extension);
                 }
 
-                try (InputStream inputStream = file.getInputStream();
-                     PDDocument document = PDDocument.load(inputStream)) {
-                    for (int i = 0; i < document.getNumberOfPages(); i++) {
-                        PDPage page = document.getPage(i);
-                        mergedDocument.importPage(page);
-                    }
+                // DON'T close source docs until after save — keep them in a list
+                PDDocument document = PDDocument.load(file.getInputStream());
+                sourceDocs.add(document);
+
+                for (int i = 0; i < document.getNumberOfPages(); i++) {
+                    mergedDocument.importPage(document.getPage(i));
                 }
             }
 
             mergedDocument.save(outputStream);
             return new ConversionResult(outputStream.toByteArray(), "merged.pdf", "application/pdf");
+
+        } finally {
+            // Close all source docs after save is complete
+            for (PDDocument doc : sourceDocs) {
+                try { doc.close(); } catch (Exception ignored) {}
+            }
         }
     }
 
-    /**
-     * Batch convert multiple files - creates a zip with separate folders for each file
-     * Each folder contains the converted output from that file
-     */
     public ConversionResult batchConvert(MultipartFile[] files, String tool) throws Exception {
         ToolDefinition toolDefinition = getToolDefinition(tool);
 
