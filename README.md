@@ -79,43 +79,42 @@ A production-ready Spring Boot application that converts between PDF and common 
 ### System Overview
 
 ┌─────────────────────────────────────────────────────────────────┐
-│ Web Browser │
-│ (HTML/CSS/JavaScript UI) │
+│                         Web Browser                             │
+│                    (HTML/CSS/JavaScript UI)                     │
 └────────────────────────────┬────────────────────────────────────┘
-│ HTTPS
-▼
-┌─────────────────┐
-│ nginx reverse │
-│ proxy + SSL │
-└────────┬────────┘
-│
-▼
+                             │ HTTPS
+                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ Spring Boot REST API (Port 8080) │
+│                   nginx reverse proxy + SSL                     │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ HTTP
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                  Spring Boot REST API (Port 8080)               │
 ├─────────────────────────────────────────────────────────────────┤
-│ Controllers │
-│ ├─ ConverterController (POST /api/convert/, GET /api/convert/) │
-│ └─ AIController (POST /api/ai/summarize) │
+│  Controllers                                                    │
+│  ├─ ConverterController (POST /api/convert/*,GET /api/convert/*)│
+│  └─ AIController (POST /api/ai/summarize)                       │
 ├─────────────────────────────────────────────────────────────────┤
-│ Security & Interceptors │
-│ ├─ RateLimitingInterceptor (15 req/hour per IP) │
-│ └─ SecurityConfig (CORS, CSRF, CSP headers) │
+│  Security & Interceptors                                        │
+│  ├─ RateLimitingInterceptor (15 req/hour per IP)                │
+│  └─ SecurityConfig (CORS, CSRF, CSP headers)                    │
 ├─────────────────────────────────────────────────────────────────┤
-│ Services │
-│ ├─ TaskRegistryService (task state, in-memory ConcurrentHashMap) │
-│ ├─ AsyncConversionWorker (ThreadPoolExecutor 4-8 threads) │
-│ ├─ ConversionService (11 conversion implementations) │
-│ ├─ LibreOfficeConverterService (subprocess management) │
-│ └─ LLMProvider (interface for AI providers) │
-│ ├─ OpenAIProvider (GPT-3.5) │
-│ └─ GeminiProvider (Google Gemini, future) │
+│  Services                                                       │
+│  ├─ TaskRegistryService (in-memory ConcurrentHashMap)           │
+│  ├─ AsyncConversionWorker (ThreadPoolExecutor 4-8 threads)      │
+│  ├─ ConversionService (11 conversion implementations)           │
+│  ├─ LibreOfficeConverterService (subprocess management)         │
+│  └─ LLMProvider                                                 │
+│     ├─ OpenAIProvider (GPT-3.5)                                 │
+│     └─ GeminiProvider (Google Gemini, future)                   │
 └─────┬──────────────────────────┬──────────────────────┬─────────┘
-│ │ │
-▼ ▼ ▼
-┌────────────┐ ┌────────────────┐ ┌──────────────┐
-│ PDFBox │ │ LibreOffice │ │ OpenAI API │
-│(PDF ops) │ │ (subprocess) │ │ (AI Summary) │
-└────────────┘ └────────────────┘ └──────────────┘
+      │                          │                      │
+      ▼                          ▼                      ▼
+┌────────────┐         ┌────────────────┐    ┌──────────────┐
+│  PDFBox    │         │ LibreOffice    │    │  OpenAI API  │
+│ (PDF ops)  │         │ (subprocess)   │    │ (AI Summary) │
+└────────────┘         └────────────────┘    └──────────────┘
 
 File Storage:
 ├─ Uploads: $JAVA_TMPDIR/convert_<taskId>/ (temporary)
