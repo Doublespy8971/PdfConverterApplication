@@ -17,7 +17,7 @@ services:
       - ./uploads:/app/uploads
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/convert/status"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/diagnostics/health"]
       interval: 30s
       timeout: 10s
       retries: 3

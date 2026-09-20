@@ -45,7 +45,7 @@ public class AsyncSummarizationWorker {
 
         } catch (Exception e) {
             logger.error("Async summarization failed - Task: {}, Error: {}", taskId, e.getMessage(), e);
-            taskRegistryService.failTask(taskId, "Summarization failed: " + e.getMessage());
+            taskRegistryService.failTask(taskId, "Summarization failed. Please try again or contact support.");
         } finally {
             cleanupTemporaryDirectory(filePath);
         }

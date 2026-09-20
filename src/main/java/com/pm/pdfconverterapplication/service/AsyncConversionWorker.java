@@ -54,7 +54,7 @@ public class AsyncConversionWorker {
 
          } catch (Exception e) {
              logger.error("Async conversion failed - Task: {}, Error: {}", taskId, e.getMessage(), e);
-             taskRegistryService.failTask(taskId, "Conversion failed: " + e.getMessage());
+             taskRegistryService.failTask(taskId, "Conversion failed. Please try again or contact support.");
          } finally {
              // Clean up temporary file
              cleanupTemporaryFile(filePath);
@@ -91,7 +91,7 @@ public class AsyncConversionWorker {
 
          } catch (Exception e) {
              logger.error("Async batch conversion failed - Task: {}, Error: {}", taskId, e.getMessage(), e);
-             taskRegistryService.failTask(taskId, "Batch conversion failed: " + e.getMessage());
+             taskRegistryService.failTask(taskId, "Conversion failed. Please try again or contact support.");
          } finally {
              // Clean up temporary files
              cleanupTemporaryDirectory(filePaths[0]);
@@ -126,7 +126,7 @@ public class AsyncConversionWorker {
 
          } catch (Exception e) {
              logger.error("Async PDF merge failed - Task: {}, Error: {}", taskId, e.getMessage(), e);
-             taskRegistryService.failTask(taskId, "PDF merge failed: " + e.getMessage());
+             taskRegistryService.failTask(taskId, "Conversion failed. Please try again or contact support.");
          } finally {
              // Clean up temporary files
              cleanupTemporaryDirectory(filePaths[0]);
@@ -236,4 +236,3 @@ public class AsyncConversionWorker {
          }
      }
  }
-

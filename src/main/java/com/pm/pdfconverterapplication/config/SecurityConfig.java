@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -103,6 +104,17 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             // Authorization: Allow public access to all requests
             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            // Security headers for browser clients
+            .headers(headers -> {
+                headers.contentTypeOptions(contentTypeOptions -> {});
+                headers.frameOptions(frameOptions -> frameOptions.deny());
+                headers.referrerPolicy(referrerPolicy -> referrerPolicy
+                    .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER));
+                headers.permissionsPolicy(permissionsPolicy -> permissionsPolicy
+                    .policy("geolocation=(), microphone=(), camera=()"));
+                headers.contentSecurityPolicy(contentSecurityPolicy -> contentSecurityPolicy
+                    .policyDirectives("default-src 'self'"));
+            })
             // Disable form login and basic auth (API only)
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable);

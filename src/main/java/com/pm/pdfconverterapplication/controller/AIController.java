@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -21,6 +23,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/ai")
 public class AIController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AIController.class);
 
     private final LLMProvider llmProvider;
     private final AsyncSummarizationWorker asyncSummarizationWorker;
@@ -64,10 +68,12 @@ public class AIController {
             return ResponseEntity.accepted().body(response);
 
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            logger.error("Invalid summarization request", e);
+            return ResponseEntity.badRequest().body("Summarization failed. Please try again or contact support.");
         } catch (Exception e) {
+            logger.error("Error initiating summarization", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Summarization failed: " + e.getMessage());
+                    .body("Summarization failed. Please try again or contact support.");
         }
     }
 
@@ -80,7 +86,8 @@ public class AIController {
             }
             return ResponseEntity.ok(new ApiStatusResponse(true, "LLM Provider API is ready"));
         } catch (Exception e) {
-            return ResponseEntity.ok(new ApiStatusResponse(false, "Error checking API status: " + e.getMessage()));
+            logger.error("Error checking API status", e);
+            return ResponseEntity.ok(new ApiStatusResponse(false, "Unable to check API status. Please try again or contact support."));
         }
     }
 
@@ -135,5 +142,4 @@ public class AIController {
 
     public record ApiStatusResponse(boolean ready, String message) {}
 }
-
 

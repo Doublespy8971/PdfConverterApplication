@@ -84,10 +84,11 @@ public class ConverterController {
              return ResponseEntity.accepted().body(response);
 
          } catch (IllegalArgumentException e) {
-             return ResponseEntity.badRequest().body(e.getMessage());
+             logger.error("Invalid batch conversion request", e);
+             return ResponseEntity.badRequest().body("Conversion failed. Please try again or contact support.");
          } catch (Exception e) {
              logger.error("Error initiating batch conversion", e);
-             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to initiate batch conversion: " + e.getMessage());
+             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
          }
      }
 
@@ -124,10 +125,11 @@ public class ConverterController {
              return ResponseEntity.accepted().body(response);
 
          } catch (IllegalArgumentException e) {
-             return ResponseEntity.badRequest().body(e.getMessage());
+             logger.error("Invalid conversion request", e);
+             return ResponseEntity.badRequest().body("Conversion failed. Please try again or contact support.");
          } catch (Exception e) {
              logger.error("Error initiating conversion", e);
-             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to initiate conversion: " + e.getMessage());
+             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
          }
      }
 
@@ -177,10 +179,11 @@ public class ConverterController {
              return ResponseEntity.accepted().body(response);
 
          } catch (IllegalArgumentException e) {
-             return ResponseEntity.badRequest().body(e.getMessage());
+             logger.error("Invalid merge request", e);
+             return ResponseEntity.badRequest().body("Conversion failed. Please try again or contact support.");
          } catch (Exception e) {
              logger.error("Error initiating merge", e);
-             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to initiate merge: " + e.getMessage());
+             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
          }
      }
 
@@ -210,7 +213,7 @@ public class ConverterController {
 
         } catch (Exception e) {
             logger.error("Error retrieving task status: {}", taskId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve task status: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unable to retrieve conversion status. Please try again or contact support.");
         }
     }
 
@@ -263,7 +266,7 @@ public class ConverterController {
 
         } catch (Exception e) {
             logger.error("Error downloading file: {}", taskId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to download file: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
         }
     }
 
@@ -276,7 +279,7 @@ public class ConverterController {
             return ResponseEntity.ok(taskRegistryService.getMetrics());
         } catch (Exception e) {
             logger.error("Error retrieving metrics", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve metrics: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unable to retrieve metrics. Please try again or contact support.");
         }
     }
 }
