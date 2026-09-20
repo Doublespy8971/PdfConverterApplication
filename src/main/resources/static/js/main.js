@@ -100,14 +100,16 @@ function getSelectedFile() {
     return fileInput.files.length > 0 ? fileInput.files[0] : null;
 }
 
-function setTool(toolKey) {
+function setTool(toolKey, updateHistory = true) {
     const config = tools[toolKey];
     if (!config) {
         return;
     }
 
     currentTool = toolKey;
-    history.pushState({ tool: toolKey }, '', `?tool=${toolKey}`);
+    if (updateHistory) {
+        history.pushState({ tool: toolKey }, '', `?tool=${toolKey}`);
+    }
     const fileInput = document.getElementById('fileInput');
     fileInput.value = '';
     fileInput.setAttribute('accept', config.accept);
@@ -141,13 +143,24 @@ function setTool(toolKey) {
     setStatus('Select file(s) to start conversion', 'info');
 }
 
-function backToTools() {
+function backToTools(updateHistory = true) {
     currentTool = '';
     document.getElementById('fileInput').value = '';
     document.getElementById('uploadSection').classList.add('hidden');
     document.getElementById('toolSelection').classList.remove('hidden');
     setStatus('', 'info');
-    history.pushState({}, '', '/');
+    if (updateHistory) {
+        history.pushState({}, '', window.location.pathname);
+    }
+}
+
+function syncViewWithHistory() {
+    const toolKey = history.state?.tool || new URLSearchParams(window.location.search).get('tool');
+    if (toolKey && tools[toolKey]) {
+        setTool(toolKey, false);
+    } else {
+        backToTools(false);
+    }
 }
 
 function setupDragDrop() {
@@ -242,6 +255,7 @@ function updateFileDisplay() {
 
 window.addEventListener('DOMContentLoaded', () => {
     setupDragDrop();
+    syncViewWithHistory();
 
     // Add click listeners to tool cards instead of buttons
     document.querySelectorAll('.tool-card').forEach((card) => {
@@ -259,6 +273,19 @@ window.addEventListener('DOMContentLoaded', () => {
             if (toolKey) {
                 setToolAndScroll(toolKey, e);
             }
+        });
+    });
+
+    document.querySelectorAll('a[href="#toolSelection"]').forEach((link) => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            backToTools();
+            document.getElementById('toolSelection').scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+
+            window.addEventListener('popstate', syncViewWithHistory);
         });
     });
 
@@ -326,12 +353,12 @@ function setupMobileDropdowns() {
         
         // Handle click on dropdown toggle
         link.addEventListener('click', (e) => {
-            e.preventDefault();
             // Only toggle on mobile (screen width <= 768px AND nav is open)
             const isMobile = window.innerWidth <= 768;
             const isNavOpen = document.querySelector('nav').classList.contains('nav-open');
             
             if (isMobile && isNavOpen) {
+                e.preventDefault();
                 const isActive = item.classList.toggle('active');
                 
                 // Close other dropdowns when opening one
