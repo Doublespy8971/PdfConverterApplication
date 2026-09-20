@@ -69,7 +69,7 @@ public class AIController {
 
         } catch (IllegalArgumentException e) {
             logger.error("Invalid summarization request", e);
-            return ResponseEntity.badRequest().body("Summarization failed. Please try again or contact support.");
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error initiating summarization", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -142,4 +142,3 @@ public class AIController {
 
     public record ApiStatusResponse(boolean ready, String message) {}
 }
-

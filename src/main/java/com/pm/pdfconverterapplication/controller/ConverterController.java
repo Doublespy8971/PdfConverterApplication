@@ -85,7 +85,7 @@ public class ConverterController {
 
          } catch (IllegalArgumentException e) {
              logger.error("Invalid batch conversion request", e);
-             return ResponseEntity.badRequest().body("Conversion failed. Please try again or contact support.");
+             return ResponseEntity.badRequest().body(e.getMessage());
          } catch (Exception e) {
              logger.error("Error initiating batch conversion", e);
              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
@@ -126,7 +126,7 @@ public class ConverterController {
 
          } catch (IllegalArgumentException e) {
              logger.error("Invalid conversion request", e);
-             return ResponseEntity.badRequest().body("Conversion failed. Please try again or contact support.");
+             return ResponseEntity.badRequest().body(e.getMessage());
          } catch (Exception e) {
              logger.error("Error initiating conversion", e);
              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
@@ -180,7 +180,7 @@ public class ConverterController {
 
          } catch (IllegalArgumentException e) {
              logger.error("Invalid merge request", e);
-             return ResponseEntity.badRequest().body("Conversion failed. Please try again or contact support.");
+             return ResponseEntity.badRequest().body(e.getMessage());
          } catch (Exception e) {
              logger.error("Error initiating merge", e);
              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
