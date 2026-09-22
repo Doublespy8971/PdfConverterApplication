@@ -122,12 +122,16 @@ public class OpenAIProvider implements LLMProvider {
                 .build();
 
         try (Response response = httpClient.newCall(request).execute()) {
+            var body = response.body();
             if (!response.isSuccessful()) {
-                String errorBody = response.body() != null ? response.body().string() : "Unknown error";
+                String errorBody = body != null ? body.string() : "Unknown error";
                 throw new RuntimeException("OpenAI API error: " + response.code() + " - " + errorBody);
             }
 
-            String responseBody = response.body().string();
+            if (body == null) {
+                throw new RuntimeException("OpenAI API returned an empty response body");
+            }
+            String responseBody = body.string();
             JsonObject responseJson = gson.fromJson(responseBody, JsonObject.class);
 
             String summary = responseJson
@@ -142,4 +146,3 @@ public class OpenAIProvider implements LLMProvider {
         }
     }
 }
-

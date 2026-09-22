@@ -221,15 +221,16 @@ public class AsyncConversionWorker {
              Path dirPath = Path.of(filePath).getParent();
              if (dirPath != null && dirPath.toString().contains("_")) {
                  // Delete directory and all contents
-                 Files.walk(dirPath)
-                      .sorted((a, b) -> b.compareTo(a))  // Sort descending to delete files before dirs
-                      .forEach(path -> {
-                          try {
-                              Files.deleteIfExists(path);
-                          } catch (IOException e) {
-                              logger.warn("Failed to delete: {}", path, e);
-                          }
-                      });
+                 try (var pathStream = Files.walk(dirPath)) {
+                     pathStream.sorted((a, b) -> b.compareTo(a))  // Sort descending to delete files before dirs
+                              .forEach(path -> {
+                                  try {
+                                      Files.deleteIfExists(path);
+                                  } catch (IOException e) {
+                                      logger.warn("Failed to delete: {}", path, e);
+                                  }
+                              });
+                 }
              }
          } catch (IOException e) {
              logger.warn("Failed to cleanup temporary directory", e);

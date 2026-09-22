@@ -112,15 +112,16 @@ public class AsyncSummarizationWorker {
         try {
             Path dirPath = Path.of(filePath).getParent();
             if (dirPath != null && dirPath.getFileName().toString().startsWith("ai_")) {
-                Files.walk(dirPath)
-                        .sorted(Comparator.reverseOrder())
-                        .forEach(path -> {
-                            try {
-                                Files.deleteIfExists(path);
-                            } catch (IOException e) {
-                                logger.warn("Failed to delete: {}", path, e);
-                            }
-                        });
+                try (var pathStream = Files.walk(dirPath)) {
+                    pathStream.sorted(Comparator.reverseOrder())
+                            .forEach(path -> {
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (IOException e) {
+                                    logger.warn("Failed to delete: {}", path, e);
+                                }
+                            });
+                }
             }
         } catch (IOException e) {
             logger.warn("Failed to cleanup temporary directory", e);
