@@ -161,6 +161,7 @@ public class AsyncConversionWorker {
              timer.stop(Timer.builder("conversion_duration")
                      .tag("tool", metricTool)
                      .tag("status", status)
+                     .publishPercentileHistogram()
                      .register(meterRegistry));
      }
 
