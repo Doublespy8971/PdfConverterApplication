@@ -152,13 +152,14 @@ public class AsyncConversionWorker {
      }
 
      private void recordConversion(String tool, String status, Timer.Sample timer) {
+             String metricTool = conversionService.isKnownTool(tool) ? tool : "unknown";
              Counter.builder("conversions_total")
-                     .tag("tool", tool)
+                     .tag("tool", metricTool)
                      .tag("status", status)
                      .register(meterRegistry)
                      .increment();
              timer.stop(Timer.builder("conversion_duration")
-                     .tag("tool", tool)
+                     .tag("tool", metricTool)
                      .tag("status", status)
                      .register(meterRegistry));
      }

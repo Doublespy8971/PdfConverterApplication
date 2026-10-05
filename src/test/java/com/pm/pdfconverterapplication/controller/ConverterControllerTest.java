@@ -171,4 +171,14 @@ class ConverterControllerTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(header().string("Retry-After", "60"));
     }
+
+    @Test
+    void batchRejectsUnknownToolBeforeCreatingTask() throws Exception {
+        taskRegistryService.taskId = null;
+        mockMvc.perform(multipart("/api/convert/batch/not-a-tool")
+                        .file(new MockMultipartFile("files", "input.pdf", "application/pdf", new byte[]{1})))
+                .andExpect(status().isBadRequest());
+
+        org.junit.jupiter.api.Assertions.assertNull(taskRegistryService.taskId);
+    }
 }

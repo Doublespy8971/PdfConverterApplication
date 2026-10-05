@@ -58,11 +58,15 @@ public class ConverterController {
              if (files.length == 0) {
                  return ResponseEntity.badRequest().body("Please upload at least one file");
              }
+             if (!conversionService.isKnownTool(tool)) {
+                 return ResponseEntity.badRequest().body("Unsupported conversion tool: " + tool);
+             }
 
              for (MultipartFile file : files) {
                  if (file.isEmpty()) {
                      return ResponseEntity.badRequest().body("One or more files are empty");
                  }
+                 conversionService.validateConversionRequest(file, tool);
              }
 
              // Initiate a task
