@@ -24,6 +24,7 @@ public class LibreOfficeConverterService {
 
     private final String executable;
     private final long conversionTimeoutSeconds;
+    private final int permitCount;
     private final Semaphore semaphore;
     private volatile Boolean libreOfficeAvailable;
 
@@ -39,6 +40,7 @@ public class LibreOfficeConverterService {
         }
         this.executable = executable;
         this.conversionTimeoutSeconds = conversionTimeoutSeconds;
+        this.permitCount = permitCount;
         this.semaphore = new Semaphore(permitCount);
     }
 
@@ -171,6 +173,10 @@ public class LibreOfficeConverterService {
             }
             return libreOfficeAvailable;
         }
+    }
+
+    public int getPermitsInUse() {
+        return permitCount - semaphore.availablePermits();
     }
 
     private boolean checkLibreOfficeAvailable() {

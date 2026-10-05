@@ -1,5 +1,8 @@
 package com.pm.pdfconverterapplication.service;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +30,9 @@ public class AsyncConversionWorker {
     @Autowired
     private TaskRegistryService taskRegistryService;
 
+    @Autowired
+    private MeterRegistry meterRegistry;
+
      /**
       * Asynchronously converts a single file.
       * Executes in a separate thread pool to prevent HTTP timeouts.
@@ -38,6 +44,8 @@ public class AsyncConversionWorker {
       */
      @Async
      public void convertFileAsync(String filePath, String originalFilename, String tool, String taskId) {
+         Timer.Sample timer = Timer.start(meterRegistry);
+         String status = "failure";
          try {
              logger.info("Async conversion started - Task: {}, Tool: {}, File: {}", taskId, tool, originalFilename);
              taskRegistryService.updateTaskProgress(taskId);
@@ -50,12 +58,14 @@ public class AsyncConversionWorker {
 
              // Complete the task with the result
              taskRegistryService.completeTask(taskId, result.content(), result.fileName(), result.contentType());
+             status = "success";
              logger.info("Async conversion completed - Task: {}, File: {}", taskId, result.fileName());
 
          } catch (Exception e) {
              logger.error("Async conversion failed - Task: {}, Error: {}", taskId, e.getMessage(), e);
              taskRegistryService.failTask(taskId, "Conversion failed. Please try again or contact support.");
          } finally {
+             recordConversion(tool, status, timer);
              // Clean up temporary file
              cleanupTemporaryFile(filePath);
          }
@@ -72,6 +82,8 @@ public class AsyncConversionWorker {
       */
      @Async
      public void batchConvertAsync(String[] filePaths, String[] filenames, String tool, String taskId) {
+         Timer.Sample timer = Timer.start(meterRegistry);
+         String status = "failure";
          try {
              logger.info("Async batch conversion started - Task: {}, Tool: {}, Files: {}", taskId, tool, filenames.length);
              taskRegistryService.updateTaskProgress(taskId);
@@ -87,12 +99,14 @@ public class AsyncConversionWorker {
 
              // Complete the task with the result
              taskRegistryService.completeTask(taskId, result.content(), result.fileName(), result.contentType());
+             status = "success";
              logger.info("Async batch conversion completed - Task: {}, Output: {}", taskId, result.fileName());
 
          } catch (Exception e) {
              logger.error("Async batch conversion failed - Task: {}, Error: {}", taskId, e.getMessage(), e);
              taskRegistryService.failTask(taskId, "Conversion failed. Please try again or contact support.");
          } finally {
+             recordConversion(tool, status, timer);
              // Clean up temporary files
              cleanupTemporaryDirectory(filePaths[0]);
          }
@@ -107,6 +121,8 @@ public class AsyncConversionWorker {
       */
      @Async
      public void mergePdfsAsync(String[] filePaths, String[] filenames, String taskId) {
+         Timer.Sample timer = Timer.start(meterRegistry);
+         String status = "failure";
          try {
              logger.info("Async PDF merge started - Task: {}, Files: {}", taskId, filenames.length);
              taskRegistryService.updateTaskProgress(taskId);
@@ -122,15 +138,29 @@ public class AsyncConversionWorker {
 
              // Complete the task with the result
              taskRegistryService.completeTask(taskId, result.content(), result.fileName(), result.contentType());
+             status = "success";
              logger.info("Async PDF merge completed - Task: {}, Output: {}", taskId, result.fileName());
 
          } catch (Exception e) {
              logger.error("Async PDF merge failed - Task: {}, Error: {}", taskId, e.getMessage(), e);
              taskRegistryService.failTask(taskId, "Conversion failed. Please try again or contact support.");
          } finally {
+             recordConversion("merge-pdf", status, timer);
              // Clean up temporary files
              cleanupTemporaryDirectory(filePaths[0]);
          }
+     }
+
+     private void recordConversion(String tool, String status, Timer.Sample timer) {
+             Counter.builder("conversions_total")
+                     .tag("tool", tool)
+                     .tag("status", status)
+                     .register(meterRegistry)
+                     .increment();
+             timer.stop(Timer.builder("conversion_duration")
+                     .tag("tool", tool)
+                     .tag("status", status)
+                     .register(meterRegistry));
      }
 
      /**

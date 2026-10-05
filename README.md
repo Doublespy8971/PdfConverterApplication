@@ -387,10 +387,24 @@ server {
     location / {
         proxy_pass http://localhost:8080;
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         client_max_body_size 100m;
     }
+}
+```
+
+Actuator listens on `127.0.0.1:8081` and exposes only health and Prometheus. A Prometheus
+agent running on the server can scrape `http://127.0.0.1:8081/actuator/prometheus` directly.
+If nginx must proxy metrics for a remote Prometheus, add an access-controlled internal location;
+do not expose the management port publicly:
+
+```nginx
+location /internal/metrics {
+    proxy_pass http://127.0.0.1:8081/actuator/prometheus;
+    allow 10.0.0.0/8;
+    deny all;
 }
 ```
 
