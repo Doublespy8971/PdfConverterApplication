@@ -38,15 +38,17 @@ class ConverterControllerTest {
     @Autowired
     private StubConversionService conversionService;
 
+    @Autowired
+    private StubWorker worker;
+
+    @Autowired
+    private ConverterController controller;
+
     @TestConfiguration
     static class StubWorkerConfiguration {
         @Bean
-        AsyncConversionWorker asyncConversionWorker() {
-            return new AsyncConversionWorker() {
-                @Override
-                public void convertFileAsync(String filePath, String originalFilename, String tool, String taskId) {
-                }
-            };
+        StubWorker asyncConversionWorker() {
+            return new StubWorker();
         }
 
         @Bean
@@ -62,6 +64,17 @@ class ConverterControllerTest {
         @Bean
         MeterRegistry meterRegistry() {
             return new SimpleMeterRegistry();
+        }
+    }
+
+    static class StubWorker extends AsyncConversionWorker {
+        private static boolean fail;
+
+        @Override
+        public void convertFileAsync(String filePath, String originalFilename, String tool, String taskId) {
+            if (fail) {
+                throw new IllegalStateException("worker rejected task");
+            }
         }
     }
 
@@ -92,6 +105,14 @@ class ConverterControllerTest {
         @Override
         public TaskStatus getTask(String requestedTaskId) {
             return task;
+        }
+
+        @Override
+        public void removeTask(String requestedTaskId) {
+            if (requestedTaskId.equals(taskId)) {
+                taskId = null;
+                task = null;
+            }
         }
     }
 
@@ -170,6 +191,22 @@ class ConverterControllerTest {
                         .file(new MockMultipartFile("file", "input.pdf", "application/pdf", new byte[]{1})))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(header().string("Retry-After", "60"));
+    }
+
+    @Test
+    void workerFailureRemovesInitiatedTask() throws Exception {
+        taskRegistryService.taskId = null;
+        taskRegistryService.atCapacity = false;
+
+        MockMultipartFile file = new MockMultipartFile("file", "input.pdf", "application/pdf", new byte[]{1}) {
+            @Override
+            public void transferTo(java.nio.file.Path destination) throws java.io.IOException {
+                throw new java.io.IOException("disk full");
+            }
+        };
+        controller.convertFile("pdf-to-word", file);
+
+        org.junit.jupiter.api.Assertions.assertNull(taskRegistryService.taskId);
     }
 
     @Test

@@ -42,6 +42,8 @@ public class AIController {
     public ResponseEntity<?> summarizePdf(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "length", defaultValue = "medium") String summaryLength) {
+        String taskId = null;
+        String tempDir = null;
         try {
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body("File is empty");
@@ -52,10 +54,10 @@ public class AIController {
                 return ResponseEntity.badRequest().body("Only PDF files are supported for summarization");
             }
 
-            String taskId = taskRegistryService.initiateTask();
+            taskId = taskRegistryService.initiateTask();
 
             String safeFilename = FileNameUtils.sanitizeFileName(file.getOriginalFilename());
-            String tempDir = System.getProperty("java.io.tmpdir") + java.io.File.separator + "ai_" + taskId;
+            tempDir = System.getProperty("java.io.tmpdir") + java.io.File.separator + "ai_" + taskId;
             Files.createDirectories(Path.of(tempDir));
             Path filePath = Path.of(tempDir, safeFilename);
             file.transferTo(filePath);
@@ -73,12 +75,34 @@ public class AIController {
                     .header(HttpHeaders.RETRY_AFTER, "60")
                     .body("The task registry is temporarily at capacity. Please retry later.");
         } catch (IllegalArgumentException e) {
+            cleanupFailedTask(taskId, tempDir);
             logger.error("Invalid summarization request", e);
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
+            cleanupFailedTask(taskId, tempDir);
             logger.error("Error initiating summarization", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Summarization failed. Please try again or contact support.");
+        }
+    }
+
+    private void cleanupFailedTask(String taskId, String tempDir) {
+            if (taskId != null) {
+                taskRegistryService.failTask(taskId, "Summarization failed. Please try again or contact support.");
+                taskRegistryService.removeTask(taskId);
+            }
+            if (tempDir != null) {
+                try (var paths = Files.walk(Path.of(tempDir))) {
+                    paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (Exception cleanupFailure) {
+                            logger.warn("Failed to clean temporary path {}", path, cleanupFailure);
+                        }
+                    });
+                } catch (java.io.IOException cleanupFailure) {
+                    logger.warn("Failed to clean temporary directory {}", tempDir, cleanupFailure);
+            }
         }
     }
 
