@@ -352,6 +352,22 @@ app.tasks.processing-timeout-hours=6
 app.tasks.cleanup-interval-ms=3600000
 ```
 
+When nginx proxies requests to the application, enable forwarded headers only when the
+application port is not publicly reachable, and list nginx's actual source IP:
+
+```properties
+app.rate-limit.trust-forwarded-headers=true
+app.rate-limit.trusted-proxies=127.0.0.1
+```
+
+```nginx
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+The API under `/api/**` is stateless and public, so CSRF is intentionally ignored for those
+endpoints. Browser UI routes retain the normal CSRF behavior; CORS remains separately configured.
+
 ### Environment Variables
 
 ```bash

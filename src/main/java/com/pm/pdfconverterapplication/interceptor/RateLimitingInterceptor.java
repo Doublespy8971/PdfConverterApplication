@@ -6,6 +6,7 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Bucket4j;
 import io.github.bucket4j.Refill;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
+import java.util.Map;
 
 @Component
 public class RateLimitingInterceptor implements HandlerInterceptor {
@@ -32,16 +34,19 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
             .build();
     private final boolean trustForwardedHeaders;
     private final Set<String> trustedProxies;
+    private final ObjectMapper objectMapper;
 
     public RateLimitingInterceptor(
             @Value("${app.rate-limit.trust-forwarded-headers:false}") boolean trustForwardedHeaders,
-            @Value("${app.rate-limit.trusted-proxies:}") String trustedProxies
+            @Value("${app.rate-limit.trusted-proxies:}") String trustedProxies,
+            ObjectMapper objectMapper
     ) {
         this.trustForwardedHeaders = trustForwardedHeaders;
         this.trustedProxies = Arrays.stream(trustedProxies.split(","))
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
                 .collect(Collectors.toSet());
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -61,7 +66,10 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
             logger.warn("Rate limit exceeded for IP: {}, Method: {}, Path: {}", ipAddress, method, path);
             response.setStatus(429); // Too Many Requests
             response.setContentType("application/json");
-            response.getWriter().write("{\"error\": \"Rate limit exceeded. Maximum 15 requests per hour allowed per IP. Retry after 60 minutes.\", \"clientIp\": \"" + ipAddress + "\"}");
+            response.setHeader("Retry-After", "3600");
+            response.getWriter().write(objectMapper.writeValueAsString(Map.of(
+                    "error", "Rate limit exceeded. Maximum 15 requests per hour allowed per IP. Retry after 60 minutes."
+            )));
             return false;
         }
 
@@ -101,4 +109,3 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
         return remoteAddr;
     }
 }
-
