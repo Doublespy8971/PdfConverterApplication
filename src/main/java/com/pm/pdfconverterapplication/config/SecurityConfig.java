@@ -83,7 +83,6 @@ public class SecurityConfig {
         // 3. CORS - restricted to configured allowed-origin (configurable per environment)
         
         logger.info("Configuring Security Filter Chain");
-        logger.info("Configured CORS allowed origins: {}", allowedOrigin);
         
         http
             // CSRF is intentionally ignored for the stateless public API under /api/**.
