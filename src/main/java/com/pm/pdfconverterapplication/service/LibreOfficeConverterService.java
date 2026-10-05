@@ -27,6 +27,7 @@ public class LibreOfficeConverterService {
     private final int permitCount;
     private final Semaphore semaphore;
     private volatile Boolean libreOfficeAvailable;
+    private volatile long lastAvailabilityCheckMillis;
 
     public LibreOfficeConverterService(
             @Value("${app.libreoffice.command:soffice}") String executable,
@@ -54,6 +55,7 @@ public class LibreOfficeConverterService {
 
         Path tempDir = null;
         Path profileDir = null;
+        Process process = null;
         try {
             tempDir = Files.createTempDirectory("lo_convert_");
             profileDir = Files.createTempDirectory("lo_profile_" + UUID.randomUUID() + "_");
@@ -75,7 +77,7 @@ public class LibreOfficeConverterService {
             processBuilder.redirectErrorStream(true);
             processBuilder.redirectOutput(logFile.toFile());
 
-            Process process = processBuilder.start();
+            process = processBuilder.start();
             boolean completed = process.waitFor(conversionTimeoutSeconds, TimeUnit.SECONDS);
             if (!completed) {
                 destroyProcessTree(process);
@@ -102,6 +104,9 @@ public class LibreOfficeConverterService {
             }
             return pdfBytes;
         } catch (InterruptedException e) {
+            if (process != null) {
+                destroyProcessTree(process);
+            }
             Thread.currentThread().interrupt();
             throw new RuntimeException("LibreOffice conversion was interrupted.", e);
         } catch (IOException e) {
@@ -163,15 +168,22 @@ public class LibreOfficeConverterService {
     }
 
     public boolean isLibreOfficeAvailable() {
-        Boolean cached = libreOfficeAvailable;
-        if (cached != null) {
-            return cached;
+        if (Boolean.TRUE.equals(libreOfficeAvailable)) {
+            return true;
         }
         synchronized (this) {
-            if (libreOfficeAvailable == null) {
-                libreOfficeAvailable = checkLibreOfficeAvailable();
+            if (Boolean.TRUE.equals(libreOfficeAvailable)) {
+                return true;
             }
-            return libreOfficeAvailable;
+            long now = System.currentTimeMillis();
+            if (now - lastAvailabilityCheckMillis < TimeUnit.SECONDS.toMillis(60)) {
+                return false;
+            }
+            lastAvailabilityCheckMillis = now;
+            if (checkLibreOfficeAvailable()) {
+                libreOfficeAvailable = true;
+            }
+            return Boolean.TRUE.equals(libreOfficeAvailable);
         }
     }
 
