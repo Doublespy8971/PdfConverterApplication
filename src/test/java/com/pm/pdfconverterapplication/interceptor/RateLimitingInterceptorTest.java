@@ -39,6 +39,18 @@ class RateLimitingInterceptorTest {
     }
 
     @Test
+    void configuredRequestsPerHourControlsBucketAndMessage() throws Exception {
+        RateLimitingInterceptor interceptor = new RateLimitingInterceptor(false, "", new ObjectMapper(), 2);
+        MockHttpServletRequest request = request("10.0.0.3");
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        assertEquals(false, interceptor.preHandle(request, response, new Object()));
+        assertTrue(response.getContentAsString().contains("Maximum 2 requests per hour"));
+    }
+
+    @Test
     void forwardedHeadersRequireTrustedPeer() throws Exception {
         RateLimitingInterceptor untrusted = new RateLimitingInterceptor(true, "127.0.0.1", new ObjectMapper());
         for (int i = 0; i < 15; i++) {

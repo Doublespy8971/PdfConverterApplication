@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -38,18 +39,29 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
     private final boolean trustForwardedHeaders;
     private final Set<String> trustedProxies;
     private final ObjectMapper objectMapper;
+    private final int requestsPerHour;
 
+    @Autowired
     public RateLimitingInterceptor(
             @Value("${app.rate-limit.trust-forwarded-headers:false}") boolean trustForwardedHeaders,
             @Value("${app.rate-limit.trusted-proxies:}") String trustedProxies,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            @Value("${app.rate-limit.requests-per-hour:15}") int requestsPerHour
     ) {
+        if (requestsPerHour < 1) {
+            throw new IllegalArgumentException("Rate limit must allow at least one request per hour");
+        }
         this.trustForwardedHeaders = trustForwardedHeaders;
         this.trustedProxies = Arrays.stream(trustedProxies.split(","))
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
                 .collect(Collectors.toSet());
         this.objectMapper = objectMapper;
+        this.requestsPerHour = requestsPerHour;
+    }
+
+    public RateLimitingInterceptor(boolean trustForwardedHeaders, String trustedProxies, ObjectMapper objectMapper) {
+        this(trustForwardedHeaders, trustedProxies, objectMapper, 15);
     }
 
     @Override
@@ -71,7 +83,8 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
             response.setContentType("application/json");
             response.setHeader("Retry-After", "3600");
             response.getWriter().write(objectMapper.writeValueAsString(Map.of(
-                    "error", "Rate limit exceeded. Maximum 15 requests per hour allowed per IP. Retry after 60 minutes."
+                    "error", "Rate limit exceeded. Maximum " + requestsPerHour
+                            + " requests per hour allowed per IP. Retry after 60 minutes."
             )));
             return false;
         }
@@ -81,8 +94,8 @@ public class RateLimitingInterceptor implements HandlerInterceptor {
 
     @SuppressWarnings("deprecation")
     private Bucket createNewBucket() {
-        // Capacity of 15 tokens, refilling 15 tokens every 1 hour
-        Bandwidth bandwidth = Bandwidth.classic(15, Refill.intervally(15, Duration.ofHours(1)));
+        Bandwidth bandwidth = Bandwidth.classic(requestsPerHour,
+                Refill.intervally(requestsPerHour, Duration.ofHours(1)));
         return Bucket4j.builder()
                 .addLimit(bandwidth)
                 .build();

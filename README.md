@@ -46,7 +46,7 @@ A deployed Spring Boot application that converts between PDF and common office f
 ### Core Features
 
 - **Asynchronous Processing**: HTTP 202 response on submission; clients poll for completion
-- **Rate Limiting**: Token bucket algorithm; 15 requests/hour per IP (configurable)
+- **Rate Limiting**: Token bucket algorithm; 15 requests/hour per IP by default (configurable)
 - **Task Registry**: In-memory task storage with auto-expiration; 2-hour retention for results
 - **Batch Operations**: Convert multiple files in one request; results packaged as ZIP
 - **Responsive Web UI**: Modern single-page interface with progress bars and real-time feedback
@@ -340,6 +340,7 @@ openai.model=gpt-3.5-turbo
 # Rate Limiting
 app.rate-limit.trust-forwarded-headers=false
 app.rate-limit.trusted-proxies=
+app.rate-limit.requests-per-hour=15
 
 # Async Processing
 app.async.core-pool-size=4
