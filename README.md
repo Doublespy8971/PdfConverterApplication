@@ -1,10 +1,10 @@
 # DocConvert Pro – Multi-Format PDF & Document Conversion
 
-A production-ready Spring Boot application that converts between PDF and common office formats with asynchronous processing, configurable rate limiting, and optional AI summarization. Deploy locally or via Docker with automatic LibreOffice integration.
+A deployed Spring Boot application that converts between PDF and common office formats with asynchronous processing, configurable rate limiting, and optional AI summarization. Deploy locally or via Docker with automatic LibreOffice integration.
 
 **🌐 Live Demo: [docconvertpro.duckdns.org](https://docconvertpro.duckdns.org)**
 
-![Project Status](https://img.shields.io/badge/status-production-green) ![Java Version](https://img.shields.io/badge/java-21%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![Project Status](https://img.shields.io/badge/status-deployed-green) ![Java Version](https://img.shields.io/badge/java-21%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 [![Deploy to Oracle Cloud](https://github.com/Doublespy8971/PdfConverterApplication/actions/workflows/deploy.yml/badge.svg)](https://github.com/Doublespy8971/PdfConverterApplication/actions/workflows/deploy.yml)
 
 **Deployed on:** Oracle Cloud Infrastructure (VM.Standard.A1.Flex, ARM, 6GB RAM) with nginx reverse proxy and Let's Encrypt SSL.
@@ -52,7 +52,7 @@ A production-ready Spring Boot application that converts between PDF and common 
 - **Responsive Web UI**: Modern single-page interface with progress bars and real-time feedback
 - **RESTful API**: Complete API for programmatic use; all endpoints documented
 - **Memory Optimized**: Streaming file uploads and downloads; no file buffering
-- **Security Hardened**: CORS origin validation, CSRF protection, file type validation, size limits
+- **Security Hardened**: CORS origin validation, CSRF protection for browser UI, stateless API endpoints, file type validation, size limits
 
 ### Tech Stack
 
@@ -414,26 +414,25 @@ location /internal/metrics {
 ## Known Limitations
 
 ### Single-Instance Only
-- Task state stored in-memory; tasks lost on restart
-- Not horizontally scalable without Redis/database
-- Planned fix: Redis task backend (v1.1)
+- Task state and completed results are stored in-memory and are lost on restart
+- Configurable task-count, per-result, and aggregate-result limits return 503 when capacity is reached
+- Not horizontally scalable without a shared task/result store
 
 ### LibreOffice Resource Constraints
-- Each office conversion spawns ~500MB process
-- Limited to 2 concurrent LibreOffice conversions
-- Planned fix: RabbitMQ job queue (v2.0)
+- Office conversions require a locally installed LibreOffice executable
+- Each conversion has an isolated temporary profile and a configurable process timeout
+- Concurrent LibreOffice conversions default to two permits and are configurable
 
 ### PDF Conversion Quality
 - Text extraction only; layout not preserved
 - PDF → Word/Excel/PPT conversions have limited fidelity
 
 ### Memory Constraints
-- Default 512MB heap supports ~5 concurrent 100MB conversions
-- Increase `-Xmx` for production workloads
+- Conversion results remain in memory until task retention cleanup or download
+- Tune JVM heap and the task registry limits for the deployment workload
 
 ### File Size Limits
-- Max 100MB per file
-- Max 500MB per batch request
+- Max 100MB per file and 500MB per batch request by default; both are configurable
 
 ---
 
@@ -456,15 +455,18 @@ location /internal/metrics {
 
 ## Performance Benchmarks
 
-Measured on Oracle Cloud VM.Standard.A1.Flex (1 OCPU, 6GB RAM):
+No benchmark measurements are claimed here. To reproduce measurements, run the application
+with a fixed Java/LibreOffice configuration, use representative files and repeated async
+submissions, and record conversion duration metrics from `/actuator/prometheus`. Report
+the workload, machine shape, concurrency, warm-up, and percentiles alongside the results.
 
-| Operation | Duration | Notes |
-|-----------|----------|-------|
-| DOCX → PDF | 2-5 sec | LibreOffice startup overhead |
-| PDF → Images (10 pages) | 3-8 sec | 150 DPI rasterization |
-| Merge 5 PDFs | 1-2 sec | Fast PDFBox operations |
-| Compress PDF (10MB) | 2-4 sec | Image re-encoding |
-| Images → PDF (10 images) | 1-3 sec | Pure Java; no subprocess |
+| Operation | p50 | p95 | p99 | Notes |
+|-----------|-----|-----|-----|-------|
+| DOCX → PDF | TBD | TBD | TBD | Record LibreOffice version and input size |
+| PDF → Images | TBD | TBD | TBD | Record page count and DPI |
+| Merge PDF | TBD | TBD | TBD | Record input count and total size |
+| Compress PDF | TBD | TBD | TBD | Record input size |
+| Images → PDF | TBD | TBD | TBD | Record image count and total size |
 
 ---
 
@@ -512,8 +514,8 @@ app.rate-limit.trusted-proxies=10.0.0.0/8
 
 ## License
 
-This project is provided as-is for educational and internal use.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ---
 
-**Last Updated:** September 2026 | **Status:** Production Ready | **Hosted:** Oracle Cloud Free Tier
+**Last Updated:** October 2026 | **Status:** Deployed | **Hosted:** Oracle Cloud Free Tier
