@@ -1,6 +1,7 @@
 package com.pm.pdfconverterapplication.controller;
 
 import com.pm.pdfconverterapplication.service.AsyncConversionWorker;
+import com.pm.pdfconverterapplication.service.ConversionService;
 import com.pm.pdfconverterapplication.service.TaskRegistryService;
 import com.pm.pdfconverterapplication.service.TaskRegistryService.TaskStatus;
 import com.pm.pdfconverterapplication.util.FileNameUtils;
@@ -12,6 +13,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.util.unit.DataSize;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -32,10 +36,16 @@ public class ConverterController {
 
     private final AsyncConversionWorker asyncConversionWorker;
     private final TaskRegistryService taskRegistryService;
+    private final ConversionService conversionService;
+    private final DataSize maxFileSize;
 
-    public ConverterController(AsyncConversionWorker asyncConversionWorker, TaskRegistryService taskRegistryService) {
+    public ConverterController(AsyncConversionWorker asyncConversionWorker, TaskRegistryService taskRegistryService,
+                               ConversionService conversionService,
+                               @Value("${spring.servlet.multipart.max-file-size:100MB}") DataSize maxFileSize) {
         this.asyncConversionWorker = asyncConversionWorker;
         this.taskRegistryService = taskRegistryService;
+        this.conversionService = conversionService;
+        this.maxFileSize = maxFileSize;
     }
 
      /**
@@ -104,6 +114,10 @@ public class ConverterController {
              if (file.isEmpty()) {
                  return ResponseEntity.badRequest().body("File is empty");
              }
+             if (file.getSize() > maxFileSize.toBytes()) {
+                 return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("File exceeds the maximum allowed size");
+             }
+             conversionService.validateConversionRequest(file, tool);
 
              // Initiate a task
              String taskId = taskRegistryService.initiateTask();
@@ -197,6 +211,12 @@ public class ConverterController {
              return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                      .header(HttpHeaders.RETRY_AFTER, "60")
                      .body("The task registry is temporarily at capacity. Please retry later.");
+     }
+
+     @ExceptionHandler(MaxUploadSizeExceededException.class)
+     public ResponseEntity<String> handleMaxUploadSizeExceeded() {
+         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                 .body("File exceeds the maximum allowed size");
      }
 
     /**
