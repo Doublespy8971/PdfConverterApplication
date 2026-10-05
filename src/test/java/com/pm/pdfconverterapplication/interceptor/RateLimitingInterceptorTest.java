@@ -61,6 +61,36 @@ class RateLimitingInterceptorTest {
         assertTrue(trusted.preHandle(trustedRequest, new MockHttpServletResponse(), new Object()));
     }
 
+    @Test
+    void forwardedAddressesAreParsedFromRightAndSkipTrustedHops() throws Exception {
+        RateLimitingInterceptor interceptor = new RateLimitingInterceptor(true, "10.0.0.1,10.0.0.2", new ObjectMapper());
+
+        for (int i = 0; i < 15; i++) {
+            MockHttpServletRequest request = request("10.0.0.2");
+            request.addHeader("X-Forwarded-For", "1.2.3.4, 10.0.0.1, 10.0.0.2");
+            assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+        }
+
+        MockHttpServletRequest rejected = request("10.0.0.2");
+        rejected.addHeader("X-Forwarded-For", "1.2.3.4, 10.0.0.1, 10.0.0.2");
+        assertEquals(false, interceptor.preHandle(rejected, new MockHttpServletResponse(), new Object()));
+    }
+
+    @Test
+    void garbageForwardedAddressesFallBackToRemoteAddress() throws Exception {
+        RateLimitingInterceptor interceptor = new RateLimitingInterceptor(true, "10.0.0.2", new ObjectMapper());
+
+        for (int i = 0; i < 15; i++) {
+            MockHttpServletRequest request = request("10.0.0.2");
+            request.addHeader("X-Forwarded-For", "not-an-ip, also-garbage");
+            assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+        }
+
+        MockHttpServletRequest rejected = request("10.0.0.2");
+        rejected.addHeader("X-Forwarded-For", "not-an-ip, also-garbage");
+        assertEquals(false, interceptor.preHandle(rejected, new MockHttpServletResponse(), new Object()));
+    }
+
     private MockHttpServletRequest request(String remoteAddress) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRemoteAddr(remoteAddress);

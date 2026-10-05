@@ -362,7 +362,7 @@ app.rate-limit.trusted-proxies=127.0.0.1
 
 ```nginx
 proxy_set_header X-Real-IP $remote_addr;
-proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-For $remote_addr;
 ```
 
 The API under `/api/**` is stateless and public, so CSRF is intentionally ignored for those
@@ -388,7 +388,7 @@ server {
         proxy_pass http://localhost:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         client_max_body_size 100m;
     }
