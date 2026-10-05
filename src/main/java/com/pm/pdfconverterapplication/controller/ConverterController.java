@@ -13,7 +13,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.util.unit.DataSize;
 import org.springframework.beans.factory.annotation.Value;
 
@@ -247,12 +246,6 @@ public class ConverterController {
                  logger.warn("Failed to clean temporary directory {}", tempDir, cleanupFailure);
              }
          }
-     }
-
-     @ExceptionHandler(MaxUploadSizeExceededException.class)
-     public ResponseEntity<String> handleMaxUploadSizeExceeded() {
-         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
-                 .body("File exceeds the maximum allowed size");
      }
 
     /**
