@@ -3,11 +3,17 @@
 This k6 script submits one DOCX to `word-to-pdf` and one PNG to `images-to-pdf` per
 iteration, polls each task until it completes, and downloads each result.
 
-Install k6, provide two small local fixtures, then run against a local application:
+Install k6 and generate the two small local fixtures:
 
 ```bash
-mkdir -p loadtest/fixtures
-# Put a valid small.docx and small.png in loadtest/fixtures/
+python3 loadtest/fixtures/generate-fixtures.py
+```
+
+The target must raise `app.rate-limit.requests-per-hour` for the test duration;
+otherwise the default 15 requests per hour will produce 429 responses while
+submitting, polling, and downloading conversions. Then run against a local application:
+
+```bash
 k6 run --vus 1 --duration 1m loadtest/async-conversion.js
 ```
 

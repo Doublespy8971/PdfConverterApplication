@@ -5,6 +5,8 @@ import { Counter, Trend } from 'k6/metrics';
 const baseUrl = (__ENV.BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
 const docxPath = __ENV.DOCX_FILE || 'loadtest/fixtures/small.docx';
 const imagePath = __ENV.IMAGE_FILE || 'loadtest/fixtures/small.png';
+const docxFile = open(docxPath, 'b');
+const imageFile = open(imagePath, 'b');
 const failures = new Counter('conversion_failures');
 const rateLimited = new Counter('conversion_rate_limited');
 const conversionDuration = new Trend('conversion_duration_ms');
@@ -18,7 +20,7 @@ function convert(tool, path, filename, mimeType) {
   const started = Date.now();
   const response = http.post(
     `${baseUrl}/api/convert/${tool}`,
-    { file: http.file(open(path, 'b'), filename, mimeType) },
+    { file: http.file(tool === 'word-to-pdf' ? docxFile : imageFile, filename, mimeType) },
   );
 
   if (response.status === 429) {
