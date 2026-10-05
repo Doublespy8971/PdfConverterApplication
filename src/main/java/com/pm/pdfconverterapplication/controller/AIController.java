@@ -8,6 +8,7 @@ import com.pm.pdfconverterapplication.service.TaskRegistryService;
 import com.pm.pdfconverterapplication.service.TaskRegistryService.TaskStatus;
 import com.pm.pdfconverterapplication.util.FileNameUtils;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -67,6 +68,10 @@ public class AIController {
             response.put("message", "AI summarization initiated");
             return ResponseEntity.accepted().body(response);
 
+        } catch (TaskRegistryService.TaskCapacityExceededException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .header(HttpHeaders.RETRY_AFTER, "60")
+                    .body("The task registry is temporarily at capacity. Please retry later.");
         } catch (IllegalArgumentException e) {
             logger.error("Invalid summarization request", e);
             return ResponseEntity.badRequest().body(e.getMessage());

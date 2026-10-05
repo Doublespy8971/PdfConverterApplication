@@ -83,6 +83,8 @@ public class ConverterController {
              response.put("message", "Batch conversion processing initiated");
              return ResponseEntity.accepted().body(response);
 
+         } catch (TaskRegistryService.TaskCapacityExceededException e) {
+             return capacityResponse();
          } catch (IllegalArgumentException e) {
              logger.error("Invalid batch conversion request", e);
              return ResponseEntity.badRequest().body(e.getMessage());
@@ -124,6 +126,8 @@ public class ConverterController {
              response.put("message", "Conversion processing initiated");
              return ResponseEntity.accepted().body(response);
 
+         } catch (TaskRegistryService.TaskCapacityExceededException e) {
+             return capacityResponse();
          } catch (IllegalArgumentException e) {
              logger.error("Invalid conversion request", e);
              return ResponseEntity.badRequest().body(e.getMessage());
@@ -178,6 +182,8 @@ public class ConverterController {
              response.put("message", "Merge processing initiated");
              return ResponseEntity.accepted().body(response);
 
+         } catch (TaskRegistryService.TaskCapacityExceededException e) {
+             return capacityResponse();
          } catch (IllegalArgumentException e) {
              logger.error("Invalid merge request", e);
              return ResponseEntity.badRequest().body(e.getMessage());
@@ -185,6 +191,12 @@ public class ConverterController {
              logger.error("Error initiating merge", e);
              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
          }
+     }
+
+     private ResponseEntity<String> capacityResponse() {
+             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                     .header(HttpHeaders.RETRY_AFTER, "60")
+                     .body("The task registry is temporarily at capacity. Please retry later.");
      }
 
     /**
