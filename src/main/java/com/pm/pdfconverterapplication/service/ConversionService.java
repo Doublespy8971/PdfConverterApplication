@@ -68,6 +68,15 @@ public class ConversionService {
         return convertSingleFile(file, tool, toolDefinition);
     }
 
+    public void validateConversionRequest(MultipartFile file, String tool) {
+        ToolDefinition toolDefinition = getToolDefinition(tool);
+        validateToolAndExtension(toolDefinition, getFileExtension(file.getOriginalFilename()));
+    }
+
+    public boolean isKnownTool(String tool) {
+        return tool != null && TOOLS.containsKey(tool.toLowerCase(Locale.ROOT));
+    }
+
     private ConversionResult convertPdfToWord(MultipartFile file, ToolDefinition toolDefinition) throws Exception {
         try (InputStream inputStream = file.getInputStream();
              PDDocument document = PDDocument.load(inputStream);

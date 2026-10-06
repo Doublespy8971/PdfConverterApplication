@@ -1,6 +1,7 @@
 package com.pm.pdfconverterapplication.controller;
 
 import com.pm.pdfconverterapplication.service.AsyncConversionWorker;
+import com.pm.pdfconverterapplication.service.ConversionService;
 import com.pm.pdfconverterapplication.service.TaskRegistryService;
 import com.pm.pdfconverterapplication.service.TaskRegistryService.TaskStatus;
 import com.pm.pdfconverterapplication.util.FileNameUtils;
@@ -12,6 +13,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.util.unit.DataSize;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -32,10 +35,16 @@ public class ConverterController {
 
     private final AsyncConversionWorker asyncConversionWorker;
     private final TaskRegistryService taskRegistryService;
+    private final ConversionService conversionService;
+    private final DataSize maxFileSize;
 
-    public ConverterController(AsyncConversionWorker asyncConversionWorker, TaskRegistryService taskRegistryService) {
+    public ConverterController(AsyncConversionWorker asyncConversionWorker, TaskRegistryService taskRegistryService,
+                               ConversionService conversionService,
+                               @Value("${spring.servlet.multipart.max-file-size:100MB}") DataSize maxFileSize) {
         this.asyncConversionWorker = asyncConversionWorker;
         this.taskRegistryService = taskRegistryService;
+        this.conversionService = conversionService;
+        this.maxFileSize = maxFileSize;
     }
 
      /**
@@ -44,23 +53,29 @@ public class ConverterController {
       */
      @PostMapping("/batch/{tool}")
      public ResponseEntity<?> batchConvertFiles(@PathVariable String tool, @RequestParam("files") MultipartFile[] files) {
+         String taskId = null;
+         String tempDir = null;
          try {
              if (files.length == 0) {
                  return ResponseEntity.badRequest().body("Please upload at least one file");
+             }
+             if (!conversionService.isKnownTool(tool)) {
+                 return ResponseEntity.badRequest().body("Unsupported conversion tool: " + tool);
              }
 
              for (MultipartFile file : files) {
                  if (file.isEmpty()) {
                      return ResponseEntity.badRequest().body("One or more files are empty");
                  }
+                 conversionService.validateConversionRequest(file, tool);
              }
 
              // Initiate a task
-             String taskId = taskRegistryService.initiateTask();
+             taskId = taskRegistryService.initiateTask();
              logger.info("Batch conversion initiated - Task: {}, Tool: {}, Files: {}", taskId, tool, files.length);
 
              // Save files to temporary storage (streaming, not byte arrays)
-             String tempDir = System.getProperty("java.io.tmpdir") + File.separator + "batch_" + taskId;
+             tempDir = System.getProperty("java.io.tmpdir") + File.separator + "batch_" + taskId;
              Files.createDirectories(Path.of(tempDir));
 
              String[] filePaths = new String[files.length];
@@ -83,10 +98,14 @@ public class ConverterController {
              response.put("message", "Batch conversion processing initiated");
              return ResponseEntity.accepted().body(response);
 
+         } catch (TaskRegistryService.TaskCapacityExceededException e) {
+             return capacityResponse();
          } catch (IllegalArgumentException e) {
+             cleanupFailedTask(taskId, tempDir);
              logger.error("Invalid batch conversion request", e);
              return ResponseEntity.badRequest().body(e.getMessage());
          } catch (Exception e) {
+              cleanupFailedTask(taskId, tempDir);
              logger.error("Error initiating batch conversion", e);
              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
          }
@@ -98,18 +117,24 @@ public class ConverterController {
       */
      @PostMapping("/{tool}")
      public ResponseEntity<?> convertFile(@PathVariable String tool, @RequestParam("file") MultipartFile file) {
+         String taskId = null;
+         String tempDir = null;
          try {
              if (file.isEmpty()) {
                  return ResponseEntity.badRequest().body("File is empty");
              }
+             if (file.getSize() > maxFileSize.toBytes()) {
+                 return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("File exceeds the maximum allowed size");
+             }
+             conversionService.validateConversionRequest(file, tool);
 
              // Initiate a task
-             String taskId = taskRegistryService.initiateTask();
+             taskId = taskRegistryService.initiateTask();
              String safeFilename = FileNameUtils.sanitizeFileName(file.getOriginalFilename());
              logger.info("Conversion initiated - Task: {}, Tool: {}, File: {}", taskId, tool, safeFilename);
 
              // Save file to temporary storage (streaming transfer, not getBytes())
-             String tempDir = System.getProperty("java.io.tmpdir") + File.separator + "convert_" + taskId;
+             tempDir = System.getProperty("java.io.tmpdir") + File.separator + "convert_" + taskId;
              Files.createDirectories(Path.of(tempDir));
              Path filePath = Path.of(tempDir, safeFilename);
              file.transferTo(filePath);  // Streaming save, not getBytes()
@@ -124,10 +149,14 @@ public class ConverterController {
              response.put("message", "Conversion processing initiated");
              return ResponseEntity.accepted().body(response);
 
+         } catch (TaskRegistryService.TaskCapacityExceededException e) {
+             return capacityResponse();
          } catch (IllegalArgumentException e) {
+              cleanupFailedTask(taskId, tempDir);
              logger.error("Invalid conversion request", e);
              return ResponseEntity.badRequest().body(e.getMessage());
          } catch (Exception e) {
+              cleanupFailedTask(taskId, tempDir);
              logger.error("Error initiating conversion", e);
              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
          }
@@ -139,6 +168,8 @@ public class ConverterController {
       */
      @PostMapping("/merge-pdf")
      public ResponseEntity<?> mergePdfFiles(@RequestParam("files") MultipartFile[] files) {
+         String taskId = null;
+         String tempDir = null;
          try {
              if (files.length < 2) {
                  return ResponseEntity.badRequest().body("Please upload at least 2 PDF files to merge");
@@ -151,11 +182,11 @@ public class ConverterController {
              }
 
              // Initiate a task
-             String taskId = taskRegistryService.initiateTask();
+             taskId = taskRegistryService.initiateTask();
              logger.info("PDF merge initiated - Task: {}, Files: {}", taskId, files.length);
 
              // Save files to temporary storage (streaming transfer, not getBytes())
-             String tempDir = System.getProperty("java.io.tmpdir") + File.separator + "merge_" + taskId;
+             tempDir = System.getProperty("java.io.tmpdir") + File.separator + "merge_" + taskId;
              Files.createDirectories(Path.of(tempDir));
 
              String[] filePaths = new String[files.length];
@@ -178,12 +209,42 @@ public class ConverterController {
              response.put("message", "Merge processing initiated");
              return ResponseEntity.accepted().body(response);
 
+         } catch (TaskRegistryService.TaskCapacityExceededException e) {
+             return capacityResponse();
          } catch (IllegalArgumentException e) {
+              cleanupFailedTask(taskId, tempDir);
              logger.error("Invalid merge request", e);
              return ResponseEntity.badRequest().body(e.getMessage());
          } catch (Exception e) {
+              cleanupFailedTask(taskId, tempDir);
              logger.error("Error initiating merge", e);
              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Conversion failed. Please try again or contact support.");
+         }
+     }
+
+     private ResponseEntity<String> capacityResponse() {
+             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                     .header(HttpHeaders.RETRY_AFTER, "60")
+                     .body("The task registry is temporarily at capacity. Please retry later.");
+     }
+
+     private void cleanupFailedTask(String taskId, String tempDir) {
+         if (taskId != null) {
+             taskRegistryService.failTask(taskId, "Conversion failed. Please try again or contact support.");
+             taskRegistryService.removeTask(taskId);
+         }
+         if (tempDir != null) {
+             try (var paths = Files.walk(Path.of(tempDir))) {
+                 paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+                     try {
+                         Files.deleteIfExists(path);
+                     } catch (Exception cleanupFailure) {
+                         logger.warn("Failed to clean temporary path {}", path, cleanupFailure);
+                     }
+                 });
+             } catch (java.io.IOException cleanupFailure) {
+                 logger.warn("Failed to clean temporary directory {}", tempDir, cleanupFailure);
+             }
          }
      }
 

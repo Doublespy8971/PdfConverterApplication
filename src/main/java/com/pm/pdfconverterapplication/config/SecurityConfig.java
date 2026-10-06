@@ -30,13 +30,6 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        // Log environment variable for diagnosis
-        String envVar = System.getenv("APP_CORS_ALLOWED_ORIGIN");
-        logger.info("==== CORS Configuration Debug ====");
-        logger.info("Environment variable APP_CORS_ALLOWED_ORIGIN: {}", envVar != null ? envVar : "NOT SET (using default)");
-        logger.info("Injected @Value allowedOrigin: {}", allowedOrigin);
-        logger.info("====================================");
-
         CorsConfiguration config = new CorsConfiguration();
 
         // Support comma-separated list in the property and allow origin patterns (wildcards)
@@ -86,14 +79,13 @@ public class SecurityConfig {
         // Authentication is not required for any endpoints.
         // Security is enforced through:
         // 1. Rate limiting (RateLimitingInterceptor) - limits 15 requests/hour per IP
-        // 2. CSRF protection for browser UI - protects state-changing operations
+        // 2. CSRF protection for browser UI; the stateless public API intentionally ignores CSRF
         // 3. CORS - restricted to configured allowed-origin (configurable per environment)
         
         logger.info("Configuring Security Filter Chain");
-        logger.info("CSRF will be ignored for: /api/**, /api/diagnostics/**");
         
         http
-            // CSRF: Explicitly ignore all /api/** endpoints (stateless API calls)
+            // CSRF is intentionally ignored for the stateless public API under /api/**.
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers(
                     new AntPathRequestMatcher("/api/**"),

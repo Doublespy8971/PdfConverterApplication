@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main ]
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -18,8 +22,8 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Build JAR
-        run: mvn clean package -DskipTests
+      - name: Verify and build JAR
+        run: ./mvnw -B verify
 
       - name: Copy JAR to server
         uses: appleboy/scp-action@v0.1.7
@@ -37,6 +41,25 @@ jobs:
           username: ${{ secrets.ORACLE_USER }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
+            if [ -f /home/ubuntu/app.jar ]; then
+              cp /home/ubuntu/app.jar /home/ubuntu/app.jar.bak
+            fi
             cp /home/ubuntu/target/pdf-converter-0.0.1-SNAPSHOT.jar /home/ubuntu/app.jar
             sudo systemctl restart pdfconverter
+            healthy=0
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:8080/api/diagnostics/health >/dev/null; then
+                healthy=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$healthy" -ne 1 ]; then
+              echo "Deployment health check failed; restoring the previous application jar."
+              if [ -f /home/ubuntu/app.jar.bak ]; then
+                cp /home/ubuntu/app.jar.bak /home/ubuntu/app.jar
+                sudo systemctl restart pdfconverter
+              fi
+              exit 1
+            fi
             echo "Deployment successful"

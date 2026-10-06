@@ -3,12 +3,15 @@ package com.pm.pdfconverterapplication.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.time.Clock;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Service to track and manage asynchronous conversion tasks.
@@ -21,13 +24,34 @@ public class TaskRegistryService {
     private final Map<String, TaskStatus> taskRegistry = new ConcurrentHashMap<>();
     private final long completedRetentionMillis;
     private final long processingTimeoutMillis;
+    private final int maxTasks;
+    private final long maxStoredResultBytes;
+    private final long maxResultBytes;
+    private final Clock clock;
+    private final AtomicLong storedResultBytes = new AtomicLong();
 
+    @Autowired
     public TaskRegistryService(
             @Value("${app.tasks.completed-retention-hours:2}") long completedRetentionHours,
-            @Value("${app.tasks.processing-timeout-hours:6}") long processingTimeoutHours
+            @Value("${app.tasks.processing-timeout-hours:6}") long processingTimeoutHours,
+            @Value("${app.tasks.max-tasks:1000}") int maxTasks,
+            @Value("${app.tasks.max-stored-result-bytes:536870912}") long maxStoredResultBytes,
+            @Value("${app.tasks.max-result-bytes:104857600}") long maxResultBytes,
+            Clock clock
     ) {
+        if (maxTasks < 1 || maxStoredResultBytes < 1 || maxResultBytes < 1) {
+            throw new IllegalArgumentException("Task registry limits must be positive");
+        }
         this.completedRetentionMillis = TimeUnit.HOURS.toMillis(completedRetentionHours);
         this.processingTimeoutMillis = TimeUnit.HOURS.toMillis(processingTimeoutHours);
+        this.maxTasks = maxTasks;
+        this.maxStoredResultBytes = maxStoredResultBytes;
+        this.maxResultBytes = maxResultBytes;
+        this.clock = clock;
+    }
+
+    public TaskRegistryService(long completedRetentionHours, long processingTimeoutHours) {
+        this(completedRetentionHours, processingTimeoutHours, 1000, 536870912, 104857600, Clock.systemUTC());
     }
 
     /**
@@ -42,10 +66,10 @@ public class TaskRegistryService {
         private long createdAt;
         private long updatedAt;
 
-        public TaskStatus() {
+        public TaskStatus(long now) {
             this.status = "PENDING";
-            this.createdAt = System.currentTimeMillis();
-            this.updatedAt = System.currentTimeMillis();
+            this.createdAt = now;
+            this.updatedAt = now;
         }
 
         // Getters and setters
@@ -54,8 +78,12 @@ public class TaskRegistryService {
         }
 
         public void setStatus(String status) {
+            setStatus(status, System.currentTimeMillis());
+        }
+
+        private void setStatus(String status, long now) {
             this.status = status;
-            this.updatedAt = System.currentTimeMillis();
+            this.updatedAt = now;
         }
 
         public byte[] getResultContent() {
@@ -115,9 +143,12 @@ public class TaskRegistryService {
      *
      * @return UUID string for the task
      */
-    public String initiateTask() {
+    public synchronized String initiateTask() {
+        if (taskRegistry.size() >= maxTasks || storedResultBytes.get() >= maxStoredResultBytes) {
+            throw new TaskCapacityExceededException();
+        }
         String taskId = UUID.randomUUID().toString();
-        TaskStatus taskStatus = new TaskStatus();
+        TaskStatus taskStatus = new TaskStatus(clock.millis());
         taskRegistry.put(taskId, taskStatus);
         logger.info("Task initiated: {}", taskId);
         return taskId;
@@ -144,13 +175,20 @@ public class TaskRegistryService {
      * @param fileName    The output file name
      * @param contentType The MIME type
      */
-    public void completeTask(String taskId, byte[] content, String fileName, String contentType) {
+    public synchronized void completeTask(String taskId, byte[] content, String fileName, String contentType) {
         TaskStatus taskStatus = taskRegistry.get(taskId);
         if (taskStatus != null) {
+            if (content == null || content.length > maxResultBytes
+                    || storedResultBytes.get() + content.length > maxStoredResultBytes) {
+                taskStatus.setErrorMessage("Conversion result cannot be stored at this time.");
+                taskStatus.setStatus("FAILED", clock.millis());
+                return;
+            }
             taskStatus.setResultContent(content);
+            storedResultBytes.addAndGet(content.length);
             taskStatus.setFileName(fileName);
             taskStatus.setContentType(contentType);
-            taskStatus.setStatus("COMPLETED");
+            taskStatus.setStatus("COMPLETED", clock.millis());
             logger.info("Task {} completed successfully: {}", taskId, fileName);
         }
     }
@@ -197,7 +235,10 @@ public class TaskRegistryService {
      * @param taskId The task ID
      */
     public void removeTask(String taskId) {
-        taskRegistry.remove(taskId);
+        TaskStatus removed = taskRegistry.remove(taskId);
+        if (removed != null && removed.getResultContent() != null) {
+            storedResultBytes.addAndGet(-removed.getResultContent().length);
+        }
         logger.debug("Task {} removed from registry", taskId);
     }
 
@@ -222,7 +263,16 @@ public class TaskRegistryService {
     }
 
     void cleanupExpiredTasks(long nowMillis) {
-        taskRegistry.entrySet().removeIf(entry -> shouldExpire(entry.getValue(), nowMillis));
+        taskRegistry.entrySet().removeIf(entry -> {
+            if (!shouldExpire(entry.getValue(), nowMillis)) {
+                return false;
+            }
+            TaskStatus removed = taskRegistry.remove(entry.getKey());
+            if (removed != null && removed.getResultContent() != null) {
+                storedResultBytes.addAndGet(-removed.getResultContent().length);
+            }
+            return true;
+        });
     }
 
     private boolean shouldExpire(TaskStatus taskStatus, long nowMillis) {
@@ -234,5 +284,19 @@ public class TaskRegistryService {
             return nowMillis - taskStatus.getCreatedAt() > processingTimeoutMillis;
         }
         return false;
+    }
+
+    public long getStoredResultBytes() {
+        return storedResultBytes.get();
+    }
+
+    public int getTaskCount() {
+        return taskRegistry.size();
+    }
+
+    public static class TaskCapacityExceededException extends RuntimeException {
+        public TaskCapacityExceededException() {
+            super("Task registry is temporarily at capacity.");
+        }
     }
 }
