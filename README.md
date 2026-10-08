@@ -428,7 +428,7 @@ location /internal/metrics {
 
 ## Performance Benchmarks
 
-No benchmark measurements are claimed here. To reproduce measurements, run the application
+No broader benchmark measurements are claimed here. To reproduce comparable measurements, run the application
 with a fixed Java/LibreOffice configuration, use representative files and repeated async
 submissions, and record conversion duration metrics from `/actuator/prometheus`. Report
 the workload, machine shape, concurrency, warm-up, and percentiles alongside the results.
@@ -440,6 +440,29 @@ the workload, machine shape, concurrency, warm-up, and percentiles alongside the
 | Merge PDF | TBD | TBD | TBD | Record input count and total size |
 | Compress PDF | TBD | TBD | TBD | Record input size |
 | Images → PDF | TBD | TBD | TBD | Record image count and total size |
+
+---
+
+## Load test results
+
+Measured during one local Docker run on a 2018 MacBook Pro (4-core i7 2.8 GHz, 16 GB),
+with Docker Desktop configured for 8 CPUs and 8 GB, k6 on the same machine, JVM `-Xmx512m`,
+`app.libreoffice.permits=2`, and the rate limit raised via `docker-compose.loadtest.yml`.
+Fixtures were a 946 B DOCX and a 68 B PNG. Each run lasted 2 minutes and ran once.
+Durations are quantized to whole seconds because the script polls once per second.
+
+| VUs | Iterations | DOCX median | DOCX p95 | DOCX max | PNG median | PNG p95 | PNG max | Failures | Rate-limited |
+|-----|------------|-------------|----------|----------|------------|---------|---------|----------|--------------|
+| 1 | 29 | 3029 ms | 4067 ms | 5415 ms | 1018 ms | 1023 ms | not measured | 0 | 0 |
+| 2 | 60 | 3032 ms | 3053 ms | 4254 ms | 1018 ms | 1025 ms | not measured | 0 | 0 |
+| 8 | 97 | 7072 ms | 10086 ms | 12307 ms | 3022 ms | 6042 ms | not measured | 0 | 0 |
+
+During the 8-VU run, `docker stats` reported about 208-221% CPU and 444-468 MiB memory.
+
+**How to read these numbers:** This was a single-machine run with tiny fixtures, run once;
+it measures pipeline behavior and not production capacity. Throughput scaled with the 2
+LibreOffice permits, and latency rose under saturation at 8 VUs. PNG slowdown at 8 VUs
+was observed; its cause has not been confirmed.
 
 ---
 

@@ -44,3 +44,5 @@ build/
 ### Uploads ###
 uploads/
 
+pdf-vus*.txt
+out*.pdf
