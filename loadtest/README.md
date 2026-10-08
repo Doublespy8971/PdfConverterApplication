@@ -16,18 +16,19 @@ conversions. Status polling and downloads are excluded from the rate-limited pat
 
 The options block lists thresholds for both tagged tool series:
 `conversion_duration_ms{tool:word-to-pdf}` and
-`conversion_duration_ms{tool:images-to-pdf}`. The `max>=0` thresholds are intentionally
-non-gating; they make the per-tool series explicit without asserting a performance target.
+`conversion_duration_ms{tool:images-to-pdf}` because k6 only shows tagged sub-metrics when a
+threshold references them. The `max>=0` thresholds are intentionally non-gating; they make
+the per-tool series explicit without asserting a performance target.
 
 Run the three measured cases with the load-test rate-limit override:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d
-k6 run --vus 1 --duration 2m loadtest/async-conversion.js
+VUS=1 DURATION=2m k6 run --summary-trend-stats="avg,med,p(90),p(95),p(99),max" loadtest/async-conversion.js
 docker compose restart pdf-converter
-k6 run --vus 2 --duration 2m loadtest/async-conversion.js
+VUS=2 DURATION=2m k6 run --summary-trend-stats="avg,med,p(90),p(95),p(99),max" loadtest/async-conversion.js
 docker compose restart pdf-converter
-k6 run --vus 8 --duration 2m loadtest/async-conversion.js
+VUS=8 DURATION=2m k6 run --summary-trend-stats="avg,med,p(90),p(95),p(99),max" loadtest/async-conversion.js
 ```
 
 For another target or fixture location:

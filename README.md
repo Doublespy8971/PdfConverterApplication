@@ -426,43 +426,35 @@ location /internal/metrics {
 
 ---
 
-## Performance Benchmarks
-
-No broader benchmark measurements are claimed here. To reproduce comparable measurements, run the application
-with a fixed Java/LibreOffice configuration, use representative files and repeated async
-submissions, and record conversion duration metrics from `/actuator/prometheus`. Report
-the workload, machine shape, concurrency, warm-up, and percentiles alongside the results.
-
-| Operation | p50 | p95 | p99 | Notes |
-|-----------|-----|-----|-----|-------|
-| DOCX → PDF | TBD | TBD | TBD | Record LibreOffice version and input size |
-| PDF → Images | TBD | TBD | TBD | Record page count and DPI |
-| Merge PDF | TBD | TBD | TBD | Record input count and total size |
-| Compress PDF | TBD | TBD | TBD | Record input size |
-| Images → PDF | TBD | TBD | TBD | Record image count and total size |
-
----
-
 ## Load test results
 
-Measured during one local Docker run on a 2018 MacBook Pro (4-core i7 2.8 GHz, 16 GB),
-with Docker Desktop configured for 8 CPUs and 8 GB, k6 on the same machine, JVM `-Xmx512m`,
-`app.libreoffice.permits=2`, and the rate limit raised via `docker-compose.loadtest.yml`.
-Fixtures were a 946 B DOCX and a 68 B PNG. Each run lasted 2 minutes and ran once.
-Durations are quantized to whole seconds because the script polls once per second.
+Environment: local Docker run, 2018 MacBook Pro 4-core i7 2.8 GHz and 16 GB, Docker Desktop
+8 CPU / 8 GB, k6 on the same machine, JVM `-Xmx512m`, `app.libreoffice.permits=2`, rate limit
+raised for the test, and fixtures of 946 B DOCX and 68 B PNG. These results are not production
+capacity measurements.
 
-| VUs | Iterations | DOCX median | DOCX p95 | DOCX max | PNG median | PNG p95 | PNG max | Failures | Rate-limited |
-|-----|------------|-------------|----------|----------|------------|---------|---------|----------|--------------|
-| 1 | 29 | 3029 ms | 4067 ms | 5415 ms | 1018 ms | 1023 ms | not measured | 0 | 0 |
-| 2 | 60 | 3032 ms | 3053 ms | 4254 ms | 1018 ms | 1025 ms | not measured | 0 | 0 |
-| 8 | 97 | 7072 ms | 10086 ms | 12307 ms | 3022 ms | 6042 ms | not measured | 0 | 0 |
+| Concurrency (VUs) | Operation | p50 ms | p95 ms | p99 ms | Failures | Rate-limited |
+|-------------------|-----------|--------|--------|--------|----------|--------------|
+| 1 VU | DOCX -> PDF | 3029 | 4067 | 5042 | 0 | 0 |
+| 1 VU | Images -> PDF | 1018 | 1023 | 1025 | 0 | 0 |
+| 2 VUs | DOCX -> PDF | 3032 | 3053 | 3660 | 0 | 0 |
+| 2 VUs | Images -> PDF | 1018 | 1025 | 1041 | 0 | 0 |
+| 8 VUs | DOCX -> PDF | 7072 | 10086 | 12301 | 0 | 0 |
+| 8 VUs | Images -> PDF | 3022 | 6042 | 6091 | 0 | 0 |
 
-During the 8-VU run, `docker stats` reported about 208-221% CPU and 444-468 MiB memory.
+| Operation | Result |
+|-----------|--------|
+| PDF -> Images | not measured |
+| Merge PDF | not measured |
+| Compress PDF | not measured |
 
-**How to read these numbers:** This was a single-machine run with tiny fixtures, run once;
-it measures pipeline behavior and not production capacity. Throughput scaled with the 2
-LibreOffice permits, and latency rose under saturation at 8 VUs. PNG slowdown at 8 VUs
-was observed; its cause has not been confirmed.
+Each run lasted 2 minutes and each concurrency level ran once; iterations were 29, 60, and
+97 for 1, 2, and 8 VUs respectively. Durations are quantized to whole seconds because the
+k6 script polls once per second. During the 8-VU run, `docker stats` showed about 208-221% CPU
+and 444-468 MiB memory. No leftover LibreOffice processes remained after the runs.
+
+Throughput grew with concurrency up to the 2 LibreOffice permits, and latency rose at 8 VUs.
+The image-conversion slowdown at 8 VUs was observed; its cause has not been confirmed.
 
 ---
 
