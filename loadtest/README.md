@@ -9,12 +9,23 @@ Install k6 and generate the two small local fixtures:
 python3 loadtest/fixtures/generate-fixtures.py
 ```
 
-The target must raise `app.rate-limit.requests-per-hour` for the test duration;
-otherwise the default 15 requests per hour will produce 429 responses while
-submitting, polling, and downloading conversions. Then run against a local application:
+The fixture paths are relative to this script's folder, `loadtest/`, not the working
+directory. The target must raise `app.rate-limit.requests-per-hour` for the test duration;
+otherwise the default 15 requests per hour can produce 429 responses while submitting
+conversions. Status polling and downloads are excluded from the rate-limited paths.
+
+k6 only reports tagged sub-metrics (the per-tool lines) when a threshold references them, so
+the options block declares non-gating `max>=0` thresholds.
+
+Run the three measured cases with the load-test rate-limit override:
 
 ```bash
-k6 run --vus 1 --duration 1m loadtest/async-conversion.js
+docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d
+VUS=1 DURATION=2m k6 run --summary-trend-stats="avg,med,p(90),p(95),p(99),max" loadtest/async-conversion.js
+docker compose -f docker-compose.yml -f docker-compose.loadtest.yml restart pdf-converter
+VUS=2 DURATION=2m k6 run --summary-trend-stats="avg,med,p(90),p(95),p(99),max" loadtest/async-conversion.js
+docker compose -f docker-compose.yml -f docker-compose.loadtest.yml restart pdf-converter
+VUS=8 DURATION=2m k6 run --summary-trend-stats="avg,med,p(90),p(95),p(99),max" loadtest/async-conversion.js
 ```
 
 For another target or fixture location:
