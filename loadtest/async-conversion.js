@@ -3,8 +3,8 @@ import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 
 const baseUrl = (__ENV.BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
-const docxPath = __ENV.DOCX_FILE || 'loadtest/fixtures/small.docx';
-const imagePath = __ENV.IMAGE_FILE || 'loadtest/fixtures/small.png';
+const docxPath = __ENV.DOCX_FILE || './fixtures/small.docx';
+const imagePath = __ENV.IMAGE_FILE || './fixtures/small.png';
 const docxFile = open(docxPath, 'b');
 const imageFile = open(imagePath, 'b');
 const failures = new Counter('conversion_failures');
@@ -14,6 +14,10 @@ const conversionDuration = new Trend('conversion_duration_ms');
 export const options = {
   vus: Number(__ENV.VUS || 1),
   duration: __ENV.DURATION || '1m',
+  thresholds: {
+    'conversion_duration_ms{tool:word-to-pdf}': ['max>=0'],
+    'conversion_duration_ms{tool:images-to-pdf}': ['max>=0'],
+  },
 };
 
 function convert(tool, path, filename, mimeType) {

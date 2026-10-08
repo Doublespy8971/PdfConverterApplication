@@ -1,0 +1,4 @@
+services:
+  pdf-converter:
+    environment:
+      - APP_RATE_LIMIT_REQUESTS_PER_HOUR=100000
