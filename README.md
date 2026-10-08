@@ -430,17 +430,17 @@ location /internal/metrics {
 
 Environment: local Docker run, 2018 MacBook Pro 4-core i7 2.8 GHz and 16 GB, Docker Desktop
 8 CPU / 8 GB, k6 on the same machine, JVM `-Xmx512m`, `app.libreoffice.permits=2`, rate limit
-raised for the test, and fixtures of 946 B DOCX and 68 B PNG. These results are not production
-capacity measurements.
+raised via `docker-compose.loadtest.yml`, and fixtures of 946 B DOCX and 68 B PNG. This was a
+local run, not production. See [loadtest/README.md](loadtest/README.md) for reproduction steps.
 
-| Concurrency (VUs) | Operation | p50 ms | p95 ms | p99 ms | Failures | Rate-limited |
-|-------------------|-----------|--------|--------|--------|----------|--------------|
-| 1 VU | DOCX -> PDF | 3029 | 4067 | 5042 | 0 | 0 |
-| 1 VU | Images -> PDF | 1018 | 1023 | 1025 | 0 | 0 |
-| 2 VUs | DOCX -> PDF | 3032 | 3053 | 3660 | 0 | 0 |
-| 2 VUs | Images -> PDF | 1018 | 1025 | 1041 | 0 | 0 |
-| 8 VUs | DOCX -> PDF | 7072 | 10086 | 12301 | 0 | 0 |
-| 8 VUs | Images -> PDF | 3022 | 6042 | 6091 | 0 | 0 |
+| VUs | Operation | p50 ms | p95 ms | p99 ms | max ms | Failures | Rate-limited |
+|-----|-----------|--------|--------|--------|--------|----------|--------------|
+| 1 | DOCX -> PDF | 3029 | 4067 | 5042 | 5415 | 0 | 0 |
+| 1 | Images -> PDF | 1018 | 1023 | 1025 | 1026 | 0 | 0 |
+| 2 | DOCX -> PDF | 3032 | 3053 | 3660 | 4254 | 0 | 0 |
+| 2 | Images -> PDF | 1018 | 1025 | 1041 | 1046 | 0 | 0 |
+| 8 | DOCX -> PDF | 7072 | 10086 | 12301 | 12307 | 0 | 0 |
+| 8 | Images -> PDF | 3022 | 6042 | 6091 | 6103 | 0 | 0 |
 
 | Operation | Result |
 |-----------|--------|
@@ -448,13 +448,13 @@ capacity measurements.
 | Merge PDF | not measured |
 | Compress PDF | not measured |
 
-Each run lasted 2 minutes and each concurrency level ran once; iterations were 29, 60, and
+Each run lasted 2 minutes and ran once; iterations were 29, 60, and
 97 for 1, 2, and 8 VUs respectively. Durations are quantized to whole seconds because the
-k6 script polls once per second. During the 8-VU run, `docker stats` showed about 208-221% CPU
-and 444-468 MiB memory. No leftover LibreOffice processes remained after the runs.
+k6 script polls once per second. Values are rounded to the nearest millisecond. During the
+8-VU run, `docker stats` showed about 208-221% CPU and 444-468 MiB memory. After the runs,
+only the java process was running in the container; no leftover LibreOffice processes remained.
 
 Throughput grew with concurrency up to the 2 LibreOffice permits, and latency rose at 8 VUs.
-The image-conversion slowdown at 8 VUs was observed; its cause has not been confirmed.
 
 ---
 

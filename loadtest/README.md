@@ -14,20 +14,17 @@ directory. The target must raise `app.rate-limit.requests-per-hour` for the test
 otherwise the default 15 requests per hour can produce 429 responses while submitting
 conversions. Status polling and downloads are excluded from the rate-limited paths.
 
-The options block lists thresholds for both tagged tool series:
-`conversion_duration_ms{tool:word-to-pdf}` and
-`conversion_duration_ms{tool:images-to-pdf}` because k6 only shows tagged sub-metrics when a
-threshold references them. The `max>=0` thresholds are intentionally non-gating; they make
-the per-tool series explicit without asserting a performance target.
+k6 only reports tagged sub-metrics (the per-tool lines) when a threshold references them, so
+the options block declares non-gating `max>=0` thresholds.
 
 Run the three measured cases with the load-test rate-limit override:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d
 VUS=1 DURATION=2m k6 run --summary-trend-stats="avg,med,p(90),p(95),p(99),max" loadtest/async-conversion.js
-docker compose restart pdf-converter
+docker compose -f docker-compose.yml -f docker-compose.loadtest.yml restart pdf-converter
 VUS=2 DURATION=2m k6 run --summary-trend-stats="avg,med,p(90),p(95),p(99),max" loadtest/async-conversion.js
-docker compose restart pdf-converter
+docker compose -f docker-compose.yml -f docker-compose.loadtest.yml restart pdf-converter
 VUS=8 DURATION=2m k6 run --summary-trend-stats="avg,med,p(90),p(95),p(99),max" loadtest/async-conversion.js
 ```
 
