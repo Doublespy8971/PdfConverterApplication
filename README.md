@@ -18,6 +18,8 @@ A deployed Spring Boot application that converts between PDF and common office f
 - [Getting Started](#getting-started)
 - [API Reference](#api-reference)
 - [Configuration](#configuration)
+- [Load test results](#load-test-results)
+- [Troubleshooting](#troubleshooting)
 - [Known Limitations](#known-limitations)
 - [Roadmap](#roadmap)
 
@@ -51,8 +53,8 @@ A deployed Spring Boot application that converts between PDF and common office f
 - **Batch Operations**: Convert multiple files in one request; results packaged as ZIP
 - **Responsive Web UI**: Modern single-page interface with progress bars and real-time feedback
 - **RESTful API**: Complete API for programmatic use; all endpoints documented
-- **Memory Optimized**: Streaming file uploads and downloads; no file buffering
-- **Security Hardened**: CORS origin validation, CSRF protection for browser UI, stateless API endpoints, file type validation, size limits
+- **Memory Optimized**: Uploads are written to temporary files; conversion results are held in memory (max 100 MiB each, 512 MiB total) until download or expiry
+- **Security Hardened**: CORS origin validation, stateless API endpoints, file type validation, size limits
 
 ### Tech Stack
 
@@ -145,7 +147,9 @@ cd PdfConverterApplication
 
 # 2. Install LibreOffice
 # macOS:
-brew install libreoffice
+brew install --cask libreoffice
+# macOS soffice is not on PATH; configure:
+# app.libreoffice.command=/Applications/LibreOffice.app/Contents/MacOS/soffice
 # Ubuntu/Debian:
 sudo apt-get install libreoffice
 
@@ -306,7 +310,7 @@ app.cors.allowed-origin=http://localhost:8080
 
 # AI Summarization (optional)
 ai.provider=openai
-openai.api.key=sk-your-openai-key
+openai.api-key=sk-your-openai-key
 openai.model=gpt-3.5-turbo
 
 # Rate Limiting
@@ -338,8 +342,7 @@ proxy_set_header X-Real-IP $remote_addr;
 proxy_set_header X-Forwarded-For $remote_addr;
 ```
 
-The API under `/api/**` is stateless and public, so CSRF is intentionally ignored for those
-endpoints. Browser UI routes retain the normal CSRF behavior; CORS remains separately configured.
+CSRF is intentionally ignored for the stateless `/api/**` endpoints; CORS is configured separately.
 
 ### Environment Variables
 
@@ -383,6 +386,39 @@ location /internal/metrics {
 
 ---
 
+## Load test results
+
+Environment: local Docker run, 2018 MacBook Pro 4-core i7 2.8 GHz and 16 GB, Docker Desktop
+8 CPU / 8 GB, k6 on the same machine, JVM `-Xmx512m`, `app.libreoffice.permits=2`, LibreOffice
+version: not recorded, rate limit raised via `docker-compose.loadtest.yml`, and fixtures of
+946 B DOCX and 68 B PNG. This was a local run, not production. See
+[loadtest/README.md](loadtest/README.md) for reproduction steps.
+
+| VUs | Operation | p50 ms | p95 ms | p99 ms | max ms | Failures | Rate-limited |
+|-----|-----------|--------|--------|--------|--------|----------|--------------|
+| 1 | DOCX -> PDF | 3029 | 4067 | 5042 | 5415 | 0 | 0 |
+| 1 | Images -> PDF | 1018 | 1023 | 1025 | 1026 | 0 | 0 |
+| 2 | DOCX -> PDF | 3032 | 3053 | 3660 | 4254 | 0 | 0 |
+| 2 | Images -> PDF | 1018 | 1025 | 1041 | 1046 | 0 | 0 |
+| 8 | DOCX -> PDF | 7072 | 10086 | 12301 | 12307 | 0 | 0 |
+| 8 | Images -> PDF | 3022 | 6042 | 6091 | 6103 | 0 | 0 |
+
+| Operation | Result |
+|-----------|--------|
+| PDF -> Images | not measured |
+| Merge PDF | not measured |
+| Compress PDF | not measured |
+
+Each run lasted 2 minutes and ran once; iterations were 29, 60, and 97 for 1, 2, and 8 VUs
+respectively. Durations are quantized to whole seconds because the k6 script polls once per
+second. Values are rounded to the nearest millisecond. During the 8-VU run, `docker stats`
+showed about 208-221% CPU and 444-468 MiB memory. After the runs, only the java process was
+running in the container; no leftover LibreOffice processes remained.
+
+Throughput grew with concurrency up to the 2 LibreOffice permits, and latency rose at 8 VUs.
+
+---
+
 <a name="known-limitations"></a>
 ## Known Limitations
 
@@ -412,12 +448,12 @@ location /internal/metrics {
 <a name="roadmap"></a>
 ## Roadmap
 
-### v1.1 (Q3 2026)
+### Next
 - [ ] Redis task backend for horizontal scaling
 - [ ] Enhanced error logging and monitoring
 - [ ] API request authentication
 
-### v2.0 (Q4 2026)
+### Later (unscheduled)
 - [ ] RabbitMQ job queue for reliability
 - [ ] S3 storage backend for results
 - [ ] WebSocket real-time progress updates
@@ -426,46 +462,17 @@ location /internal/metrics {
 
 ---
 
-## Load test results
-
-Environment: local Docker run, 2018 MacBook Pro 4-core i7 2.8 GHz and 16 GB, Docker Desktop
-8 CPU / 8 GB, k6 on the same machine, JVM `-Xmx512m`, `app.libreoffice.permits=2`, rate limit
-raised via `docker-compose.loadtest.yml`, and fixtures of 946 B DOCX and 68 B PNG. This was a
-local run, not production. See [loadtest/README.md](loadtest/README.md) for reproduction steps.
-
-| VUs | Operation | p50 ms | p95 ms | p99 ms | max ms | Failures | Rate-limited |
-|-----|-----------|--------|--------|--------|--------|----------|--------------|
-| 1 | DOCX -> PDF | 3029 | 4067 | 5042 | 5415 | 0 | 0 |
-| 1 | Images -> PDF | 1018 | 1023 | 1025 | 1026 | 0 | 0 |
-| 2 | DOCX -> PDF | 3032 | 3053 | 3660 | 4254 | 0 | 0 |
-| 2 | Images -> PDF | 1018 | 1025 | 1041 | 1046 | 0 | 0 |
-| 8 | DOCX -> PDF | 7072 | 10086 | 12301 | 12307 | 0 | 0 |
-| 8 | Images -> PDF | 3022 | 6042 | 6091 | 6103 | 0 | 0 |
-
-| Operation | Result |
-|-----------|--------|
-| PDF -> Images | not measured |
-| Merge PDF | not measured |
-| Compress PDF | not measured |
-
-Each run lasted 2 minutes and ran once; iterations were 29, 60, and
-97 for 1, 2, and 8 VUs respectively. Durations are quantized to whole seconds because the
-k6 script polls once per second. Values are rounded to the nearest millisecond. During the
-8-VU run, `docker stats` showed about 208-221% CPU and 444-468 MiB memory. After the runs,
-only the java process was running in the container; no leftover LibreOffice processes remained.
-
-Throughput grew with concurrency up to the 2 LibreOffice permits, and latency rose at 8 VUs.
-
----
-
 ## Troubleshooting
 
 ### LibreOffice Not Found
 ```bash
-brew install libreoffice        # macOS
+brew install --cask libreoffice # macOS
 sudo apt-get install libreoffice # Ubuntu
 # Or use: docker-compose up -d
 ```
+
+On macOS, `soffice` is not on `PATH`; set
+`app.libreoffice.command=/Applications/LibreOffice.app/Contents/MacOS/soffice`.
 
 ### Port 8080 Already in Use
 ```bash
@@ -482,8 +489,10 @@ mvn spring-boot:run
 ### Rate Limit Blocking Traffic
 ```properties
 app.rate-limit.trust-forwarded-headers=true
-app.rate-limit.trusted-proxies=10.0.0.0/8
+app.rate-limit.trusted-proxies=192.0.2.10
 ```
+
+`trusted-proxies` requires exact IP matches; CIDR ranges are not supported.
 
 ---
 
